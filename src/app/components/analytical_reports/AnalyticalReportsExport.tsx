@@ -1,101 +1,100 @@
 // ============================================================
 // AnalyticalReportsExport.tsx
+// month and category come as plain API strings — used directly
+// in the PDF HTML. Only labels and titles go through tAR().
 // ============================================================
-import { useState } from "react";
-import GlassCard from "../../core/shared/components/GlassCard";
+import { useState }  from "react";
+import GlassCard     from "../../core/shared/components/GlassCard";
 import { exportPdf } from "../../core/shared/components/exportPdf";
 import { Download, Calendar } from "lucide-react";
-import { useAnalyticalReports } from "../../core/services/AnalyticalReports.service";
-import type { AnalyticalReportsData, DateRange } from "../../core/models/AnalyticalReports.types";
+import { useAnalyticalReports }
+                     from "../../core/services/AnalyticalReports.service";
+import { tAR, formatDateDisplay, formatNum }
+                     from "../../core/i18n/analyticalReports.i18n";
+import { SHORT_MONTHS } from "../../core/i18n/util.i18n";
+import type { AnalyticalReportsData, DateRange }
+                     from "../../core/models/AnalyticalReports.types";
+import type { Lang } from "../../core/models/Settings.types";
 
-const MONTHS_AR = [
-  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
-  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
-];
+interface Props { lang: Lang; }
 
-function formatDate(v: string): string {
-  if (!v) return "";
-  const [y, m, d] = v.split("-");
-  return `${parseInt(d)} ${MONTHS_AR[parseInt(m) - 1]} ${y}`;
+function calcAvg(arr: number[]): string {
+  return (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(1);
 }
 
-function num(n: number): string {
-  return n.toLocaleString("ar-SA");
-}
-
-function buildProfitRows(data: AnalyticalReportsData): string {
+function buildProfitRows(data: AnalyticalReportsData, lang: Lang): string {
   return data.profitability
     .map((p, i) => `
       <tr class="${i % 2 === 0 ? "row-even" : "row-odd"}">
-        <td style="text-align:right">${p.month}</td>
+        <td style="text-align:right">${SHORT_MONTHS[lang][p.month - 1]}</td>
         <td style="text-align:center;color:#059669">${p.margin}%</td>
         <td style="text-align:center;color:#F97316">${p.roi}%</td>
       </tr>`)
     .join("");
 }
 
-function buildExpenseRows(data: AnalyticalReportsData): string {
+function buildExpenseRows(data: AnalyticalReportsData, lang: Lang): string {
   return data.expenseBreakdown
     .map((e, i) => `
       <tr class="${i % 2 === 0 ? "row-even" : "row-odd"}">
         <td style="text-align:right">${e.category}</td>
-        <td style="text-align:center;font-weight:600">${num(e.amount)} ر.س</td>
+        <td style="text-align:center;font-weight:600">
+          ${formatNum(e.amount, lang)} ${tAR(lang, "currency")}
+        </td>
       </tr>`)
     .join("");
 }
 
-function calcAvg(arr: number[]): string {
-  return (arr.reduce((s, v) => s + v, 0) / arr.length).toFixed(1);
-}
-
-function triggerPdfExport(data: AnalyticalReportsData, dateRange: DateRange): void {
+function triggerPdfExport(data: AnalyticalReportsData, dateRange: DateRange, lang: Lang): void {
   const totalExpenses = data.expenseBreakdown.reduce((s, e) => s + e.amount, 0);
   const avgMargin     = calcAvg(data.profitability.map((p) => p.margin));
   const avgRoi        = calcAvg(data.profitability.map((p) => p.roi));
 
   exportPdf({
-    title:    "التقارير التحليلية",
-    subtitle: "تقارير مفصلة وتحليلات متقدمة",
+    title:    tAR(lang, "pageTitle"),
+    subtitle: tAR(lang, "pdfSubtitle"),
     metaItems: [
-      { label: "من تاريخ",  value: formatDate(dateRange.from) },
-      { label: "إلى تاريخ", value: formatDate(dateRange.to)   },
+      { label: tAR(lang, "fromDate"), value: formatDateDisplay(dateRange.from, lang) },
+      { label: tAR(lang, "toDate"),   value: formatDateDisplay(dateRange.to,   lang) },
     ],
     kpiCards: [
-      { label: "متوسط هامش الربح",           value: `${avgMargin}%`,          color: "green"  },
-      { label: "متوسط العائد على الاستثمار", value: `${avgRoi}%`,             color: "orange" },
-      { label: "إجمالي المصروفات",           value: `${num(totalExpenses)} ر.س`, color: "red" },
+      { label: tAR(lang, "avgProfitMargin"), value: `${avgMargin}%`,                                    color: "green"  },
+      { label: tAR(lang, "avgRoi"),          value: `${avgRoi}%`,                                       color: "orange" },
+      { label: tAR(lang, "totalExpenses"),   value: `${formatNum(totalExpenses, lang)} ${tAR(lang, "currency")}`, color: "red" },
     ],
     sections: [
       {
         html: `
-          <div class="section-title">تحليل الربحية</div>
+          <div class="section-title">${tAR(lang, "profitAnalysis")}</div>
           <table>
             <thead>
               <tr>
-                <th style="text-align:right;width:40%">الشهر</th>
-                <th style="text-align:center;width:30%">هامش الربح %</th>
-                <th style="text-align:center;width:30%">العائد على الاستثمار %</th>
+                <th style="text-align:right;width:40%">${tAR(lang, "monthCol")}</th>
+                <th style="text-align:center;width:30%">${tAR(lang, "profitMarginCol")}</th>
+                <th style="text-align:center;width:30%">${tAR(lang, "roiCol")}</th>
               </tr>
             </thead>
-            <tbody>${buildProfitRows(data)}</tbody>
+            <tbody>${buildProfitRows(data, lang)}</tbody>
           </table>
         `,
       },
       {
         html: `
-          <div class="section-title" style="margin-top:24px">تحليل المصروفات</div>
+          <div class="section-title" style="margin-top:24px">${tAR(lang, "expenseAnalysis")}</div>
           <table>
             <thead>
               <tr>
-                <th style="text-align:right;width:60%">الفئة</th>
-                <th style="text-align:center;width:40%">المبلغ</th>
+                <th style="text-align:right;width:60%">${tAR(lang, "categoryCol")}</th>
+                <th style="text-align:center;width:40%">${tAR(lang, "amountCol")}</th>
               </tr>
             </thead>
             <tbody>
-              ${buildExpenseRows(data)}
+              ${buildExpenseRows(data, lang)}
               <tr class="totals-row">
-                <td>الإجمالي</td>
-                <td style="text-align:center;color:#F97316">${num(totalExpenses)} ر.س</td>
+                <td>${tAR(lang, "totalRow")}</td>
+                <td style="text-align:center;color:#F97316">
+                  ${formatNum(totalExpenses, lang)} ${tAR(lang, "currency")}
+                </td>
               </tr>
             </tbody>
           </table>
@@ -105,13 +104,13 @@ function triggerPdfExport(data: AnalyticalReportsData, dateRange: DateRange): vo
   });
 }
 
-export default function AnalyticalReportsExport() {
+export default function AnalyticalReportsExport({ lang }: Props) {
   const { data, dateRange } = useAnalyticalReports();
   const [scheduling, setScheduling] = useState(false);
 
   function handlePdfExport() {
     if (!data) return;
-    triggerPdfExport(data, dateRange);
+    triggerPdfExport(data, dateRange, lang);
   }
 
   function handleSchedule() {
@@ -121,7 +120,7 @@ export default function AnalyticalReportsExport() {
 
   return (
     <GlassCard>
-      <h2 className="text-xl font-bold text-white mb-4">تصدير التقارير</h2>
+      <h2 className="text-xl font-bold text-white mb-4">{tAR(lang, "exportTitle")}</h2>
       <div className="flex items-center gap-4 flex-wrap">
 
         <button
@@ -132,7 +131,7 @@ export default function AnalyticalReportsExport() {
             disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Download className="w-5 h-5" />
-          تصدير إلى PDF
+          {tAR(lang, "exportPdf")}
         </button>
 
         <button
@@ -146,7 +145,7 @@ export default function AnalyticalReportsExport() {
             ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
             : <Calendar className="w-5 h-5" />
           }
-          جدولة التقارير
+          {scheduling ? tAR(lang, "scheduling") : tAR(lang, "scheduleReports")}
         </button>
 
       </div>

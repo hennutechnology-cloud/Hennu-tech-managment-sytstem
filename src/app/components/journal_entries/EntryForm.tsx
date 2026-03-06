@@ -13,6 +13,7 @@ import type {
 } from "../../core/models/JournalEntries.types";
 import { ACCOUNT_OPTIONS } from "../../core/models/JournalEntries.types";
 import DatePicker from "../../core/shared/components/DatePicker";
+import { tJE, tJEInterp } from "../../core/i18n/journalEntries.i18n";
 
 const today = new Date().toISOString().slice(0, 10);
 
@@ -20,18 +21,18 @@ function emptyLine(id: number): EntryLineForm {
   return { id, accountCode: "", description: "", debit: "", credit: "" };
 }
 
-function validate(values: JournalEntryFormValues): JournalEntryFormErrors {
+function validate(values: JournalEntryFormValues, lang: import("../../core/models/Settings.types").Lang): JournalEntryFormErrors {
   const errors: JournalEntryFormErrors = {};
-  if (!values.date)        errors.date        = "التاريخ مطلوب";
-  if (!values.description.trim()) errors.description = "البيان مطلوب";
+  if (!values.date)               errors.date        = tJE(lang, "errDateRequired");
+  if (!values.description.trim()) errors.description = tJE(lang, "errDescRequired");
 
   const lineErrors = values.lines.map((l) => {
     const e: { accountCode?: string; amounts?: string } = {};
-    if (!l.accountCode) e.accountCode = "اختر حساباً";
+    if (!l.accountCode) e.accountCode = tJE(lang, "errAccountRequired");
     const d = parseFloat(l.debit)  || 0;
     const c = parseFloat(l.credit) || 0;
-    if (d === 0 && c === 0) e.amounts = "أدخل مبلغاً";
-    if (d > 0   && c > 0)   e.amounts = "مدين أو دائن فقط";
+    if (d === 0 && c === 0) e.amounts = tJE(lang, "errAmountRequired");
+    if (d > 0   && c > 0)   e.amounts = tJE(lang, "errDebitOrCredit");
     return e;
   });
   if (lineErrors.some((e) => Object.keys(e).length)) errors.lines = lineErrors;
@@ -39,12 +40,12 @@ function validate(values: JournalEntryFormValues): JournalEntryFormErrors {
   const totalDebit  = values.lines.reduce((s, l) => s + (parseFloat(l.debit)  || 0), 0);
   const totalCredit = values.lines.reduce((s, l) => s + (parseFloat(l.credit) || 0), 0);
   if (totalDebit !== totalCredit || totalDebit === 0)
-    errors.balance = `القيد غير متوازن — الفرق: ${Math.abs(totalDebit - totalCredit).toLocaleString()} ر.س`;
+    errors.balance = tJEInterp(lang, "errNotBalanced", { n: Math.abs(totalDebit - totalCredit).toLocaleString() });
 
   return errors;
 }
 
-export default function EntryForm({ onSave }: EntryFormProps) {
+export default function EntryForm({ lang, onSave }: EntryFormProps) {
   const [values, setValues] = useState<JournalEntryFormValues>({
     date: today,
     description: "",
@@ -81,7 +82,7 @@ export default function EntryForm({ onSave }: EntryFormProps) {
 
   const handleSave = async () => {
     setTouched(true);
-    const errs = validate(values);
+    const errs = validate(values, lang);
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
     try {
@@ -96,22 +97,22 @@ export default function EntryForm({ onSave }: EntryFormProps) {
 
   return (
     <GlassCard>
-      <h2 className="text-xl font-bold text-white mb-6">قيد يومية جديد</h2>
+      <h2 className="text-xl font-bold text-white mb-6">{tJE(lang, "formTitle")}</h2>
 
       <div className="space-y-4 mb-6">
         {/* Date + Description */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <DatePicker
-              label="التاريخ"
-              value={values.date}
-              onChange={(v) => setField("date", v)}
-              error={errors.date}
-            />
+            label={tJE(lang, "fieldDate")}
+            value={values.date}
+            onChange={(v) => setField("date", v)}
+            error={errors.date}
+          />
           <div>
-            <label className="block text-gray-400 text-sm mb-2">البيان</label>
+            <label className="block text-gray-400 text-sm mb-2">{tJE(lang, "fieldDescription")}</label>
             <input
               type="text"
-              placeholder="وصف القيد المحاسبي"
+              placeholder={tJE(lang, "fieldDescPlaceholder")}
               value={values.description}
               onChange={(e) => setField("description", e.target.value)}
               className={`w-full bg-white/5 border ${errors.description ? "border-red-500/60" : "border-white/10"} rounded-xl px-4 py-3 text-white placeholder:text-gray-500 focus:outline-none focus:border-[#F97316] transition-colors`}
@@ -125,10 +126,10 @@ export default function EntryForm({ onSave }: EntryFormProps) {
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
-                <th className="text-right py-3 px-3 text-gray-400 text-sm">الحساب</th>
-                <th className="text-right py-3 px-3 text-gray-400 text-sm">البيان</th>
-                <th className="text-center py-3 px-3 text-gray-400 text-sm">مدين</th>
-                <th className="text-center py-3 px-3 text-gray-400 text-sm">دائن</th>
+                <th className="text-right py-3 px-3 text-gray-400 text-sm">{tJE(lang, "colAccount")}</th>
+                <th className="text-right py-3 px-3 text-gray-400 text-sm">{tJE(lang, "colLineDesc")}</th>
+                <th className="text-center py-3 px-3 text-gray-400 text-sm">{tJE(lang, "colDebit")}</th>
+                <th className="text-center py-3 px-3 text-gray-400 text-sm">{tJE(lang, "colCredit")}</th>
                 <th></th>
               </tr>
             </thead>
@@ -148,7 +149,7 @@ export default function EntryForm({ onSave }: EntryFormProps) {
                         onChange={(e) => setLine(line.id, "accountCode", e.target.value)}
                         className={`w-full bg-white/5 border ${lineErr?.accountCode ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#F97316]`}
                       >
-                        <option value="">اختر الحساب</option>
+                        <option value="">{tJE(lang, "selectAccount")}</option>
                         {ACCOUNT_OPTIONS.map((a) => (
                           <option key={a.code} value={a.code} className="bg-[#0f1117]">
                             {a.code} - {a.name}
@@ -160,7 +161,7 @@ export default function EntryForm({ onSave }: EntryFormProps) {
                     <td className="py-2 px-3">
                       <input
                         type="text"
-                        placeholder="البيان التفصيلي"
+                        placeholder={tJE(lang, "lineDescPlaceholder")}
                         value={line.description}
                         onChange={(e) => setLine(line.id, "description", e.target.value)}
                         className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#F97316]"
@@ -201,7 +202,7 @@ export default function EntryForm({ onSave }: EntryFormProps) {
                 <td colSpan={2} className="py-3 px-3">
                   <button onClick={addLine} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors text-sm">
                     <Plus className="w-4 h-4" />
-                    إضافة سطر
+                    {tJE(lang, "addLine")}
                   </button>
                 </td>
                 <td className="py-3 px-3 text-center font-bold text-white">{totalDebit.toLocaleString()}</td>
@@ -219,17 +220,17 @@ export default function EntryForm({ onSave }: EntryFormProps) {
               <>
                 <CheckCircle2 className="w-6 h-6 text-emerald-400" />
                 <div>
-                  <p className="text-emerald-400 font-medium">القيد متوازن</p>
-                  <p className="text-sm text-gray-400">المدين = الدائن</p>
+                  <p className="text-emerald-400 font-medium">{tJE(lang, "balanced")}</p>
+                  <p className="text-sm text-gray-400">{tJE(lang, "balancedSub")}</p>
                 </div>
               </>
             ) : (
               <>
                 <AlertCircle className="w-6 h-6 text-red-400" />
                 <div>
-                  <p className="text-red-400 font-medium">القيد غير متوازن</p>
+                  <p className="text-red-400 font-medium">{tJE(lang, "notBalanced")}</p>
                   <p className="text-sm text-gray-400">
-                    الفرق: {Math.abs(totalDebit - totalCredit).toLocaleString()} ر.س
+                    {tJEInterp(lang, "balanceDiff", { n: Math.abs(totalDebit - totalCredit).toLocaleString() })}
                   </p>
                 </div>
               </>
@@ -245,7 +246,7 @@ export default function EntryForm({ onSave }: EntryFormProps) {
             }`}
           >
             {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-            حفظ القيد
+            {saving ? tJE(lang, "saving") : tJE(lang, "saveEntry")}
           </button>
         </div>
       </div>

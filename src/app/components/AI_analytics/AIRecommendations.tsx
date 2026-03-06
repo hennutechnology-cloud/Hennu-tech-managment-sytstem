@@ -1,23 +1,16 @@
 // ============================================================
 // AIRecommendations.tsx
+// title, action, impact come as plain strings from the API —
+// render them directly. Only priority is an enum resolved by i18n.
 // ============================================================
 import { Target, CheckCircle } from "lucide-react";
-import { motion } from "motion/react";
-import { useState } from "react";
-import GlassCard from "../../core/shared/components/GlassCard";
-import type {
-  AIRecommendationsProps,
-  RecommendationPriority,
-} from "../../core/models/AIAnalytics.types";
+import { motion }              from "motion/react";
+import { useState }            from "react";
+import GlassCard               from "../../core/shared/components/GlassCard";
+import { tAI, PRIORITY_STYLE, resolvePriority } from "../../core/i18n/aiAnalytics.i18n";
+import type { AIRecommendationsProps }           from "../../core/models/AIAnalytics.types";
 
-// Mirrors the original priorityColors object exactly
-const PRIORITY_STYLE: Record<RecommendationPriority, string> = {
-  عالية:  "bg-red-500/20    text-red-400    border border-red-500/30",
-  متوسطة: "bg-orange-500/20 text-orange-400 border border-orange-500/30",
-  منخفضة: "bg-emerald-500/20 text-emerald-400 border border-emerald-500/30",
-};
-
-export default function AIRecommendations({ recommendations, onApply }: AIRecommendationsProps) {
+export default function AIRecommendations({ recommendations, onApply, lang }: AIRecommendationsProps) {
   const [applied, setApplied] = useState<Set<number>>(new Set());
   const [loading, setLoading] = useState<number | null>(null);
 
@@ -32,7 +25,7 @@ export default function AIRecommendations({ recommendations, onApply }: AIRecomm
     <div>
       <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
         <Target className="w-6 h-6 text-[#F97316]" />
-        التوصيات الذكية
+        {tAI(lang, "recommendationsTitle")}
       </h2>
       <div className="space-y-4">
         {recommendations.map((rec, index) => {
@@ -52,12 +45,12 @@ export default function AIRecommendations({ recommendations, onApply }: AIRecomm
                     <div className="flex items-center gap-3 mb-2 flex-wrap">
                       <h4 className="text-lg font-bold text-white">{rec.title}</h4>
                       <span className={`px-3 py-1 rounded-lg border text-sm ${PRIORITY_STYLE[rec.priority]}`}>
-                        {rec.priority}
+                        {resolvePriority(lang, rec.priority)}
                       </span>
                     </div>
                     <p className="text-gray-300 mb-2 text-sm leading-relaxed">{rec.action}</p>
                     <div className="flex items-center gap-2">
-                      <span className="text-sm text-gray-400">التأثير المتوقع:</span>
+                      <span className="text-sm text-gray-400">{tAI(lang, "expectedImpactLabel")}</span>
                       <span className="text-emerald-400 font-medium">{rec.impact}</span>
                     </div>
                   </div>
@@ -67,7 +60,7 @@ export default function AIRecommendations({ recommendations, onApply }: AIRecomm
                                     bg-emerald-500/15 border border-emerald-500/30 rounded-xl
                                     text-emerald-400 text-sm font-medium">
                       <CheckCircle className="w-4 h-4" />
-                      تم التطبيق
+                      {tAI(lang, "applied")}
                     </div>
                   ) : (
                     <button
@@ -79,10 +72,9 @@ export default function AIRecommendations({ recommendations, onApply }: AIRecomm
                                  disabled:opacity-60 disabled:cursor-not-allowed"
                     >
                       {isLoading && (
-                        <span className="w-4 h-4 border-2 border-white/30 border-t-white
-                                         rounded-full animate-spin" />
+                        <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       )}
-                      {isLoading ? "جارٍ التطبيق…" : "تطبيق"}
+                      {isLoading ? tAI(lang, "applying") : tAI(lang, "apply")}
                     </button>
                   )}
                 </div>

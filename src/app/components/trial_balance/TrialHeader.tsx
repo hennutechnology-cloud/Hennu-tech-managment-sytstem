@@ -1,16 +1,21 @@
 // ============================================================
 // TrialHeader.tsx
+// All static text goes through tTB(). No hardcoded strings.
 // ============================================================
-import { Download } from "lucide-react";
+import { Download }  from "lucide-react";
+import { tTB, dirAttr } from "../../core/i18n/trialBalance.i18n";
 import type { TrialHeaderProps } from "../../core/models/TrialBalance.types";
 
-export default function TrialHeader({ onExport, exporting }: TrialHeaderProps) {
+export default function TrialHeader({ lang, onExport, exporting }: TrialHeaderProps) {
   return (
-    <div className="flex items-center justify-between">
+    <div dir={dirAttr(lang)} className="flex items-center justify-between">
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">ميزان المراجعة</h1>
-        <p className="text-gray-400">التحقق من توازن الحسابات</p>
+        <h1 className="text-3xl font-bold text-white mb-2">
+          {tTB(lang, "pageTitle")}
+        </h1>
+        <p className="text-gray-400">{tTB(lang, "pageSubtitle")}</p>
       </div>
+
       <button
         onClick={onExport}
         disabled={exporting}
@@ -21,7 +26,7 @@ export default function TrialHeader({ onExport, exporting }: TrialHeaderProps) {
         {exporting
           ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           : <Download className="w-5 h-5" />}
-        {exporting ? "جارٍ التصدير…" : "تصدير Excel"}
+        {exporting ? tTB(lang, "exporting") : tTB(lang, "exportExcel")}
       </button>
     </div>
   );

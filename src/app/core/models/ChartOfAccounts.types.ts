@@ -1,65 +1,73 @@
+// ============================================================
+// ChartOfAccounts.types.ts
+// ============================================================
+import type { Lang } from "./Settings.types";
+
 export type AccountType = "main" | "sub" | "detail";
 
 export interface Account {
-  code: string;
-  name: string;
-  type: AccountType;
-  balance: number;
+  code:      string;   // plain string from API
+  name:      string;   // plain string from API
+  type:      AccountType;
+  balance:   number;
   children?: Account[];
 }
 
 export interface AccountSummary {
-  totalAssets: number;
+  totalAssets:      number;
   totalLiabilities: number;
-  equity: number;
-  revenues: number;
-  expenses: number;
+  equity:           number;
+  revenues:         number;
+  expenses:         number;
 }
 
-// ── Form ──────────────────────────────────────────────────────────────────
+// ── Form ──────────────────────────────────────────────────────
 export interface AccountFormValues {
-  code: string;
-  name: string;
-  type: AccountType;
-  balance: string; // kept as string so the input stays controlled
-  parentCode: string; // "" = top-level
+  code:       string;
+  name:       string;
+  type:       AccountType;
+  balance:    string;    // kept as string so the input stays controlled
+  parentCode: string;    // "" = top-level
 }
 
 export interface AccountFormErrors {
-  code?: string;
-  name?: string;
-  type?: string;
+  code?:    string;
+  name?:    string;
+  type?:    string;
   balance?: string;
 }
 
-// ── Component Props ───────────────────────────────────────────────────────
+// ── Component Props ───────────────────────────────────────────
 export interface ChartHeaderProps {
-  title?: string;
-  subtitle?: string;
   onAddAccount: () => void;
+  lang:         Lang;
 }
 
 export interface AccountsTreeProps {
   accounts: Account[];
-  onEdit: (account: Account) => void;
+  onEdit:   (account: Account) => void;
   onDelete: (account: Account) => void;
+  lang:     Lang;
 }
 
 export interface SummaryCardsProps {
   summary: AccountSummary;
+  lang:    Lang;
 }
 
 export interface AccountModalProps {
-  isOpen: boolean;
-  editAccount: Account | null; // null = create mode
-  accounts: Account[];         // for parent selector
-  onClose: () => void;
-  onSave: (values: AccountFormValues) => Promise<void>;
+  isOpen:      boolean;
+  editAccount: Account | null;
+  accounts:    Account[];
+  onClose:     () => void;
+  onSave:      (values: AccountFormValues) => Promise<void>;
+  lang:        Lang;
 }
 
 export interface DeleteConfirmProps {
-  isOpen: boolean;
-  account: Account | null;
+  isOpen:    boolean;
+  account:   Account | null;
   onConfirm: () => Promise<void>;
-  onCancel: () => void;
+  onCancel:  () => void;
+  lang:      Lang;
 }

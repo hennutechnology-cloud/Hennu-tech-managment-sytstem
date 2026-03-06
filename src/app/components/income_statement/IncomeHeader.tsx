@@ -2,14 +2,15 @@
 // IncomeHeader.tsx
 // ============================================================
 import { Download } from "lucide-react";
+import { tIS }      from "../../core/i18n/incomeStatement.i18n";
 import type { IncomeHeaderProps } from "../../core/models/IncomeStatement.types";
 
-export default function IncomeHeader({ onExport, exporting }: IncomeHeaderProps) {
+export default function IncomeHeader({ onExport, exporting, lang }: IncomeHeaderProps) {
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">قائمة الدخل</h1>
-        <p className="text-gray-400">بيان الأرباح والخسائر</p>
+        <h1 className="text-3xl font-bold text-white mb-2">{tIS(lang, "pageTitle")}</h1>
+        <p className="text-gray-400">{tIS(lang, "pageSubtitle")}</p>
       </div>
       <button
         onClick={onExport}
@@ -21,7 +22,7 @@ export default function IncomeHeader({ onExport, exporting }: IncomeHeaderProps)
         {exporting
           ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           : <Download className="w-5 h-5" />}
-        {exporting ? "جارٍ التصدير…" : "تصدير PDF"}
+        {exporting ? tIS(lang, "exporting") : tIS(lang, "exportPdf")}
       </button>
     </div>
   );

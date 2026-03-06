@@ -15,12 +15,16 @@ import {
   deleteJournalEntry,
 } from "../core/services/JournalEntries.service";
 import type { JournalEntry, JournalEntryFormValues } from "../core/models/JournalEntries.types";
+import { useLang } from "../core/context/LangContext";
+import { tJE }    from "../core/i18n/journalEntries.i18n";
 
 function safeArray(val: unknown): JournalEntry[] {
   return Array.isArray(val) ? (val as JournalEntry[]) : [];
 }
 
 export default function JournalEntries() {
+  const { lang } = useLang();
+
   const [entries, setEntries] = useState<JournalEntry[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -53,7 +57,6 @@ export default function JournalEntries() {
     setDetailOpen(true);
   };
 
-  /** Called from detail modal Edit button */
   const handleEditFromDetail = (entry: JournalEntry) => {
     setDetailOpen(false);
     setEditEntry(entry);
@@ -65,9 +68,8 @@ export default function JournalEntries() {
     setEntries(updated);
   };
 
-  /** Called from table row delete OR from detail modal delete button */
   const handleDeleteRequest = (entry: JournalEntry) => {
-    setDetailOpen(false);   // close detail if open
+    setDetailOpen(false);
     setDeleteTarget(entry);
     setDeleteOpen(true);
   };
@@ -85,7 +87,7 @@ export default function JournalEntries() {
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-3 text-gray-400">
           <span className="w-5 h-5 border-2 border-gray-600 border-t-orange-500 rounded-full animate-spin" />
-          جارٍ التحميل…
+          {tJE(lang, "loading")}
         </div>
       </div>
     );
@@ -93,18 +95,19 @@ export default function JournalEntries() {
 
   return (
     <div className="space-y-8">
-      <JournalHeader />
+      <JournalHeader lang={lang} />
 
-      <EntryForm onSave={handleCreate} />
+      <EntryForm lang={lang} onSave={handleCreate} />
 
       <RecentEntries
+        lang={lang}
         entries={entries}
         onView={handleView}
         onDelete={handleDeleteRequest}
       />
 
-      {/* View details */}
       <EntryDetailModal
+        lang={lang}
         isOpen={detailOpen}
         entry={detailEntry}
         onClose={() => setDetailOpen(false)}
@@ -112,16 +115,16 @@ export default function JournalEntries() {
         onDelete={handleDeleteRequest}
       />
 
-      {/* Edit */}
       <EntryEditModal
+        lang={lang}
         isOpen={editOpen}
         entry={editEntry}
         onClose={() => setEditOpen(false)}
         onSave={handleEditSave}
       />
 
-      {/* Delete confirmation */}
       <JournalDeleteConfirm
+        lang={lang}
         isOpen={deleteOpen}
         entry={deleteTarget}
         onConfirm={handleDeleteConfirm}

@@ -13,19 +13,23 @@ import type {
 } from "../../core/models/JournalEntries.types";
 import { ACCOUNT_OPTIONS } from "../../core/models/JournalEntries.types";
 import DatePicker from "../../core/shared/components/DatePicker";
+import { tJE, tJEInterp } from "../../core/i18n/journalEntries.i18n";
 
-function validate(values: JournalEntryFormValues): JournalEntryFormErrors {
+function validate(
+  values: JournalEntryFormValues,
+  lang: import("../../core/models/Settings.types").Lang,
+): JournalEntryFormErrors {
   const errors: JournalEntryFormErrors = {};
-  if (!values.date)               errors.date        = "التاريخ مطلوب";
-  if (!values.description.trim()) errors.description = "البيان مطلوب";
+  if (!values.date)               errors.date        = tJE(lang, "errDateRequired");
+  if (!values.description.trim()) errors.description = tJE(lang, "errDescRequired");
 
   const lineErrors = values.lines.map((l) => {
     const e: { accountCode?: string; amounts?: string } = {};
-    if (!l.accountCode) e.accountCode = "اختر حساباً";
+    if (!l.accountCode) e.accountCode = tJE(lang, "errAccountRequired");
     const d = parseFloat(l.debit)  || 0;
     const c = parseFloat(l.credit) || 0;
-    if (d === 0 && c === 0) e.amounts = "أدخل مبلغاً";
-    if (d > 0   && c > 0)   e.amounts = "مدين أو دائن فقط";
+    if (d === 0 && c === 0) e.amounts = tJE(lang, "errAmountRequired");
+    if (d > 0   && c > 0)   e.amounts = tJE(lang, "errDebitOrCredit");
     return e;
   });
   if (lineErrors.some((e) => Object.keys(e).length)) errors.lines = lineErrors;
@@ -33,17 +37,16 @@ function validate(values: JournalEntryFormValues): JournalEntryFormErrors {
   const td = values.lines.reduce((s, l) => s + (parseFloat(l.debit)  || 0), 0);
   const tc = values.lines.reduce((s, l) => s + (parseFloat(l.credit) || 0), 0);
   if (td !== tc || td === 0)
-    errors.balance = `القيد غير متوازن — الفرق: ${Math.abs(td - tc).toLocaleString()} ر.س`;
+    errors.balance = tJEInterp(lang, "errNotBalanced", { n: Math.abs(td - tc).toLocaleString() });
 
   return errors;
 }
 
-export default function EntryEditModal({ isOpen, entry, onClose, onSave }: EntryEditModalProps) {
+export default function EntryEditModal({ lang, isOpen, entry, onClose, onSave }: EntryEditModalProps) {
   const [values,  setValues]  = useState<JournalEntryFormValues>({ date: "", description: "", lines: [] });
   const [errors,  setErrors]  = useState<JournalEntryFormErrors>({});
   const [saving,  setSaving]  = useState(false);
 
-  // Pre-fill when entry changes
   useEffect(() => {
     if (isOpen && entry) {
       setValues({
@@ -80,7 +83,7 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
   };
 
   const handleSave = async () => {
-    const errs = validate(values);
+    const errs = validate(values, lang);
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
     try { await onSave(entry!.id, values); onClose(); }
@@ -114,8 +117,10 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-gradient-to-l from-orange-500/10 to-transparent shrink-0">
                 <div>
-                  <h2 className="text-lg font-bold text-white">تعديل القيد</h2>
-                  <p className="text-xs text-gray-400 mt-0.5">قيد رقم #{entry?.id}</p>
+                  <h2 className="text-lg font-bold text-white">{tJE(lang, "editTitle")}</h2>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    {tJEInterp(lang, "entryNo", { id: entry?.id ?? "" })}
+                  </p>
                 </div>
                 <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white">
                   <X className="w-5 h-5" />
@@ -126,15 +131,15 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
               <div className="px-6 py-5 overflow-y-auto flex-1 space-y-4">
                 <div className="grid grid-cols-2 gap-4">
                   <DatePicker
-                    label="التاريخ"
+                    label={tJE(lang, "fieldDate")}
                     value={values.date}
                     onChange={(v) => setField("date", v)}
                     error={errors.date}
                   />
                   <div>
-                    <label className="block text-xs text-gray-400 mb-1.5">البيان</label>
+                    <label className="block text-xs text-gray-400 mb-1.5">{tJE(lang, "fieldDescription")}</label>
                     <input
-                      type="text" value={values.description} placeholder="وصف القيد"
+                      type="text" value={values.description} placeholder={tJE(lang, "fieldDescPlaceholder")}
                       onChange={(e) => setField("description", e.target.value)}
                       className={inputCls(errors.description)}
                     />
@@ -146,10 +151,10 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
                   <table className="w-full">
                     <thead>
                       <tr className="border-b border-white/10">
-                        <th className="text-right py-2 px-3 text-gray-400 text-xs">الحساب</th>
-                        <th className="text-right py-2 px-3 text-gray-400 text-xs">البيان</th>
-                        <th className="text-center py-2 px-3 text-gray-400 text-xs">مدين</th>
-                        <th className="text-center py-2 px-3 text-gray-400 text-xs">دائن</th>
+                        <th className="text-right py-2 px-3 text-gray-400 text-xs">{tJE(lang, "colAccount")}</th>
+                        <th className="text-right py-2 px-3 text-gray-400 text-xs">{tJE(lang, "colLineDesc")}</th>
+                        <th className="text-center py-2 px-3 text-gray-400 text-xs">{tJE(lang, "colDebit")}</th>
+                        <th className="text-center py-2 px-3 text-gray-400 text-xs">{tJE(lang, "colCredit")}</th>
                         <th></th>
                       </tr>
                     </thead>
@@ -160,7 +165,7 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
                           <tr key={line.id} className="border-b border-white/5">
                             <td className="py-2 px-3">
                               <select value={line.accountCode} onChange={(e) => setLine(line.id, "accountCode", e.target.value)} className={inputCls(le?.accountCode)}>
-                                <option value="">اختر الحساب</option>
+                                <option value="">{tJE(lang, "selectAccount")}</option>
                                 {ACCOUNT_OPTIONS.map((a) => (
                                   <option key={a.code} value={a.code} className="bg-[#0f1117]">{a.code} - {a.name}</option>
                                 ))}
@@ -168,7 +173,7 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
                               {le?.accountCode && <p className="text-xs text-red-400 mt-0.5">{le.accountCode}</p>}
                             </td>
                             <td className="py-2 px-3">
-                              <input type="text" placeholder="البيان" value={line.description} onChange={(e) => setLine(line.id, "description", e.target.value)} className={inputCls()} />
+                              <input type="text" placeholder={tJE(lang, "lineDescPlaceholder")} value={line.description} onChange={(e) => setLine(line.id, "description", e.target.value)} className={inputCls()} />
                             </td>
                             <td className="py-2 px-3">
                               <input type="number" placeholder="0.00" value={line.debit} onChange={(e) => setLine(line.id, "debit", e.target.value)} className={inputCls(le?.amounts) + " text-center"} />
@@ -192,7 +197,7 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
                       <tr className="border-t-2 border-white/20">
                         <td colSpan={2} className="py-2 px-3">
                           <button onClick={addLine} className="flex items-center gap-1.5 px-3 py-1.5 bg-white/5 hover:bg-white/10 rounded-lg text-white text-xs transition-colors">
-                            <Plus className="w-3.5 h-3.5" /> إضافة سطر
+                            <Plus className="w-3.5 h-3.5" /> {tJE(lang, "addLine")}
                           </button>
                         </td>
                         <td className="py-2 px-3 text-center text-sm font-bold text-white">{totalDebit.toLocaleString()}</td>
@@ -206,21 +211,25 @@ export default function EntryEditModal({ isOpen, entry, onClose, onSave }: Entry
                 {/* Balance */}
                 <div className={`flex items-center gap-2 px-4 py-3 rounded-xl ${isBalanced ? "bg-emerald-500/10 border border-emerald-500/20" : "bg-red-500/10 border border-red-500/20"}`}>
                   {isBalanced
-                    ? <><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-sm text-emerald-400">القيد متوازن</span></>
-                    : <><AlertCircle  className="w-4 h-4 text-red-400"     /><span className="text-sm text-red-400">الفرق: {Math.abs(totalDebit - totalCredit).toLocaleString()} ر.س</span></>}
+                    ? <><CheckCircle2 className="w-4 h-4 text-emerald-400" /><span className="text-sm text-emerald-400">{tJE(lang, "balanced")}</span></>
+                    : <><AlertCircle  className="w-4 h-4 text-red-400"     /><span className="text-sm text-red-400">{tJEInterp(lang, "balanceDiff", { n: Math.abs(totalDebit - totalCredit).toLocaleString() })}</span></>}
                 </div>
               </div>
 
               {/* Footer */}
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10 shrink-0">
-                <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">إلغاء</button>
+                <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
+                  {tJE(lang, "cancel")}
+                </button>
                 <button
                   onClick={handleSave}
                   disabled={saving || !isBalanced}
                   className="px-6 py-2.5 rounded-xl bg-gradient-to-l from-[#F97316] to-[#EA580C] text-white text-sm font-medium flex items-center gap-2 hover:shadow-lg hover:shadow-orange-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                 >
-                  {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
-                  حفظ التعديلات
+                  {saving
+                    ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                    : <Save className="w-4 h-4" />}
+                  {saving ? tJE(lang, "saving") : tJE(lang, "saveChanges")}
                 </button>
               </div>
             </div>

@@ -1,11 +1,13 @@
 // ============================================================
 // TrialNoDataAlert.tsx
+// All static text goes through tTB(). No hardcoded strings.
 // ============================================================
 import { motion, AnimatePresence } from "motion/react";
-import { AlertCircle, X } from "lucide-react";
+import { AlertCircle, X }  from "lucide-react";
+import { tTB, dirAttr }    from "../../core/i18n/trialBalance.i18n";
 import type { NoDataAlertProps } from "../../core/models/TrialBalance.types";
 
-export default function TrialNoDataAlert({ isOpen, onClose }: NoDataAlertProps) {
+export default function TrialNoDataAlert({ lang, isOpen, onClose }: NoDataAlertProps) {
   return (
     <AnimatePresence>
       {isOpen && (
@@ -25,20 +27,32 @@ export default function TrialNoDataAlert({ isOpen, onClose }: NoDataAlertProps) 
             className="fixed inset-0 z-[51] flex items-center justify-center p-4"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="w-full max-w-sm bg-[#0f1117] border border-amber-500/20
-                            rounded-2xl shadow-2xl shadow-amber-900/20 overflow-hidden">
+            <div
+              dir={dirAttr(lang)}
+              className="w-full max-w-sm bg-[#0f1117] border border-amber-500/20
+                         rounded-2xl shadow-2xl shadow-amber-900/20 overflow-hidden"
+            >
               <div className="h-1 w-full bg-gradient-to-l from-amber-500 to-amber-400" />
               <div className="px-6 py-7 flex flex-col items-center text-center">
                 <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20
                                 flex items-center justify-center mb-5">
                   <AlertCircle className="w-8 h-8 text-amber-400" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">لا توجد بيانات</h3>
+
+                <h3 className="text-lg font-bold text-white mb-2">
+                  {tTB(lang, "alertTitle")}
+                </h3>
+
+                {/* Split on \n to render the two lines */}
                 <p className="text-sm text-gray-400 leading-relaxed mb-6">
-                  لا توجد بيانات لميزان المراجعة في الفترة المحددة.
-                  <br />
-                  يرجى تغيير الفترة المحاسبية والمحاولة مجدداً.
+                  {tTB(lang, "alertBody").split("\n").map((line, i) => (
+                    <span key={i}>
+                      {line}
+                      {i === 0 && <br />}
+                    </span>
+                  ))}
                 </p>
+
                 <button
                   onClick={onClose}
                   className="w-full py-2.5 rounded-xl bg-gradient-to-l from-amber-500 to-amber-400
@@ -46,7 +60,7 @@ export default function TrialNoDataAlert({ isOpen, onClose }: NoDataAlertProps) 
                              hover:shadow-lg hover:shadow-amber-500/30 transition-all text-sm"
                 >
                   <X className="w-4 h-4" />
-                  حسناً، فهمت
+                  {tTB(lang, "alertClose")}
                 </button>
               </div>
             </div>

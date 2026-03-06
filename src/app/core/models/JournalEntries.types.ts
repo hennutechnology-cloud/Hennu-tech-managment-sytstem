@@ -1,6 +1,7 @@
 // ============================================================
 // JournalEntries.types.ts
 // ============================================================
+import type { Lang } from "./Settings.types";
 
 export interface EntryLine {
   id: number;
@@ -44,21 +45,23 @@ export interface JournalEntryFormErrors {
 
 // ── Component Props ───────────────────────────────────────────────────────
 export interface JournalHeaderProps {
-  title?: string;
-  subtitle?: string;
+  lang: Lang;
 }
 
 export interface EntryFormProps {
+  lang: Lang;
   onSave: (values: JournalEntryFormValues) => Promise<void>;
 }
 
 export interface RecentEntriesProps {
+  lang: Lang;
   entries: JournalEntry[];
   onView: (entry: JournalEntry) => void;
   onDelete: (entry: JournalEntry) => void;
 }
 
 export interface EntryDetailModalProps {
+  lang: Lang;
   isOpen: boolean;
   entry: JournalEntry | null;
   onClose: () => void;
@@ -67,6 +70,7 @@ export interface EntryDetailModalProps {
 }
 
 export interface EntryEditModalProps {
+  lang: Lang;
   isOpen: boolean;
   entry: JournalEntry | null;
   onClose: () => void;
@@ -74,6 +78,7 @@ export interface EntryEditModalProps {
 }
 
 export interface DeleteConfirmProps {
+  lang: Lang;
   isOpen: boolean;
   entry: JournalEntry | null;
   onConfirm: () => Promise<void>;

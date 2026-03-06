@@ -1,81 +1,77 @@
 // ============================================================
 // AIAnalytics.types.ts
 // ============================================================
+import type { Lang } from "./Settings.types";
+
+export type InsightRisk            = "high" | "medium" | "low";
+export type RecommendationPriority = "high" | "medium" | "low";
+export type HealthLabelKey         = "good" | "fair" | "poor";
+export type RiskLevelKey           = "low" | "medium" | "high" | "critical";
+export type RiskCategoryKey        = "cost" | "quality" | "time" | "liquidity" | "compliance" | "resources";
+
+// ── API shapes ────────────────────────────────────────────────
 
 export interface RiskItem {
-  category: string;
-  score: number;
+  categoryKey: RiskCategoryKey; // fixed enum → resolved by i18n
+  score:       number;
 }
 
 export interface CostPredictionPoint {
-  month: string;
-  actual?: number;      // undefined for future months
-  predicted: number;
+  month:      number;   // 1–12 → formatted by util.i18n
+  actual?:    number;
+  predicted:  number;
 }
 
 export interface CashFlowPoint {
-  month: string;
-  inflow: number;
+  month:   number;      // 1–12
+  inflow:  number;
   outflow: number;
 }
 
-export type InsightRisk = "high" | "medium" | "low";
-
 export interface AIInsight {
-  title: string;
-  description: string;
-  risk: InsightRisk;
-  /** Maps to a Lucide icon in the component */
-  iconKey: "trending" | "alert" | "cart" | "shield";
-  confidence: string;
+  title:       string;  // ← plain string from API, already in user's language
+  description: string;  // ← plain string from API, already in user's language
+  risk:        InsightRisk;
+  iconKey:     "trending" | "alert" | "cart" | "shield"; // fixed enum → i18n not needed
+  confidence:  number;  // 0–100, component adds "%"
 }
 
-export type RecommendationPriority = "عالية" | "متوسطة" | "منخفضة";
-
 export interface AIRecommendation {
-  title: string;
-  action: string;
-  impact: string;
-  priority: RecommendationPriority;
+  title:    string;                  // ← plain string from API
+  action:   string;                  // ← plain string from API
+  impact:   string;                  // ← plain string from API (already formatted)
+  priority: RecommendationPriority;  // fixed enum → resolved by i18n
 }
 
 export interface AIHealthData {
-  score: number;
-  label: string;
-  successRate: number;
-  riskLevel: string;
-  lastUpdated: string;
+  score:          number;
+  labelKey:       HealthLabelKey;  // fixed enum → resolved by i18n
+  successRate:    number;
+  riskLevelKey:   RiskLevelKey;    // fixed enum → resolved by i18n
+  lastUpdatedIso: string;          // ISO 8601 → formatted by util.i18n
 }
 
 export interface AIAnalyticsData {
-  health: AIHealthData;
-  riskAssessment: RiskItem[];
-  costPrediction: CostPredictionPoint[];
+  health:           AIHealthData;
+  riskAssessment:   RiskItem[];
+  costPrediction:   CostPredictionPoint[];
   cashFlowForecast: CashFlowPoint[];
-  insights: AIInsight[];
-  recommendations: AIRecommendation[];
+  insights:         AIInsight[];
+  recommendations:  AIRecommendation[];
 }
 
-// ── Component Props ────────────────────────────────────────────
+// ── Component prop types ──────────────────────────────────────
 
-export interface AIHealthScoreProps {
-  health: AIHealthData;
-}
-
-export interface RiskRadarProps {
-  data: RiskItem[];
-}
-
-export interface AIInsightsProps {
-  insights: AIInsight[];
-}
-
+export interface AIHealthScoreProps   { health: AIHealthData;             lang: Lang; }
+export interface RiskRadarProps       { data:   RiskItem[];               lang: Lang; }
+export interface AIInsightsProps      { insights: AIInsight[];            lang: Lang; }
 export interface PredictionChartsProps {
-  costPrediction: CostPredictionPoint[];
+  costPrediction:   CostPredictionPoint[];
   cashFlowForecast: CashFlowPoint[];
+  lang:             Lang;
 }
-
 export interface AIRecommendationsProps {
   recommendations: AIRecommendation[];
-  onApply: (index: number) => Promise<void>;
+  onApply:         (index: number) => Promise<void>;
+  lang:            Lang;
 }

@@ -1,36 +1,32 @@
 // ============================================================
 // DepreciationTable.tsx
+// asset.name and asset.purchaseDate are plain API strings — rendered directly.
+// asset.method is a neutral key — resolved by resolveMethod().
+// All labels and column headers go through tDep().
 // ============================================================
-import { useState } from "react";
+import { useState }            from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { ChevronDown, Pencil } from "lucide-react";
-import GlassCard from "../../core/shared/components/GlassCard";
-import { useDepreciation } from "../../core/services/Depreciation.service";
-import type { DepreciationAsset } from "../../core/models/Depreciation.types";
-
-function num(n: number): string { return n.toLocaleString("ar-SA"); }
-
-function Skeleton() {
-  return (
-    <div className="space-y-3">
-      {Array.from({ length: 3 }).map((_, i) => (
-        <div key={i} className="h-16 rounded-xl bg-white/5 animate-pulse" />
-      ))}
-    </div>
-  );
-}
+import GlassCard               from "../../core/shared/components/GlassCard";
+import { useDepreciation }     from "../../core/services/Depreciation.service";
+import { tDep, formatNum, resolveMethod } from "../../core/i18n/depreciation.i18n";
+import type { DepreciationAsset, DepreciationTableProps } from "../../core/models/Depreciation.types";
+import type { Lang }           from "../../core/models/Settings.types";
 
 interface AssetRowProps {
   asset:  DepreciationAsset;
   onEdit: (a: DepreciationAsset) => void;
+  lang:   Lang;
 }
 
-function AssetRow({ asset, onEdit }: AssetRowProps) {
+function AssetRow({ asset, onEdit, lang }: AssetRowProps) {
   const [expanded, setExpanded] = useState(false);
 
   const depreciationPct = Math.round((asset.accumulated / asset.cost) * 100);
   const yearsUsed       = Math.round(asset.accumulated / asset.annualDepreciation);
   const yearsRemaining  = Math.max(0, asset.usefulLife - yearsUsed);
+  const cur             = tDep(lang, "currency");
+  const yr              = tDep(lang, "yearUnit");
 
   return (
     <>
@@ -46,21 +42,24 @@ function AssetRow({ asset, onEdit }: AssetRowProps) {
               <ChevronDown className="w-4 h-4 text-gray-400" />
             </motion.div>
             <div>
+              {/* asset.name is a plain API string */}
               <div className="text-white font-medium">{asset.name}</div>
-              <div className="text-xs text-gray-400 mt-0.5">تاريخ الشراء: {asset.purchaseDate}</div>
+              <div className="text-xs text-gray-400 mt-0.5">
+                {tDep(lang, "purchaseDateLabel")}: {asset.purchaseDate}
+              </div>
             </div>
           </div>
         </td>
-        <td className="py-4 px-4 text-white">{num(asset.cost)} ر.س</td>
-        <td className="py-4 px-4 text-white">{asset.usefulLife} سنة</td>
+        <td className="py-4 px-4 text-white">{formatNum(asset.cost, lang)} {cur}</td>
+        <td className="py-4 px-4 text-white">{asset.usefulLife} {yr}</td>
         <td className="py-4 px-4">
           <span className="px-3 py-1 bg-blue-500/20 text-blue-400 border border-blue-500/30 rounded-lg text-sm">
-            {asset.method}
+            {resolveMethod(lang, asset.method)}
           </span>
         </td>
-        <td className="py-4 px-4 text-[#F97316]">{num(asset.annualDepreciation)} ر.س</td>
-        <td className="py-4 px-4 text-red-400">{num(asset.accumulated)} ر.س</td>
-        <td className="py-4 px-4 text-emerald-400 font-medium">{num(asset.bookValue)} ر.س</td>
+        <td className="py-4 px-4 text-[#F97316]">{formatNum(asset.annualDepreciation, lang)} {cur}</td>
+        <td className="py-4 px-4 text-red-400">{formatNum(asset.accumulated, lang)} {cur}</td>
+        <td className="py-4 px-4 text-emerald-400 font-medium">{formatNum(asset.bookValue, lang)} {cur}</td>
         <td className="py-4 px-4">
           <button
             onClick={(e) => { e.stopPropagation(); onEdit(asset); }}
@@ -73,12 +72,7 @@ function AssetRow({ asset, onEdit }: AssetRowProps) {
 
       <AnimatePresence>
         {expanded && (
-          <motion.tr
-            key={`detail-${asset.id}`}
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-          >
+          <motion.tr key={`detail-${asset.id}`} initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}>
             <td colSpan={8} className="px-4 pb-4 pt-0">
               <motion.div
                 initial={{ height: 0, opacity: 0 }}
@@ -90,28 +84,28 @@ function AssetRow({ asset, onEdit }: AssetRowProps) {
                 <div className="bg-white/5 rounded-xl p-5 grid grid-cols-2 md:grid-cols-4 gap-4 border border-white/10">
 
                   <div className="space-y-1">
-                    <p className="text-xs text-gray-400">القيمة المتبقية</p>
-                    <p className="text-white font-semibold">{num(asset.salvageValue)} ر.س</p>
+                    <p className="text-xs text-gray-400">{tDep(lang, "detailSalvageValue")}</p>
+                    <p className="text-white font-semibold">{formatNum(asset.salvageValue, lang)} {cur}</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-xs text-gray-400">قابل للإهلاك</p>
-                    <p className="text-white font-semibold">{num(asset.cost - asset.salvageValue)} ر.س</p>
+                    <p className="text-xs text-gray-400">{tDep(lang, "detailDepreciable")}</p>
+                    <p className="text-white font-semibold">{formatNum(asset.cost - asset.salvageValue, lang)} {cur}</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-xs text-gray-400">نسبة الإهلاك المتراكم</p>
+                    <p className="text-xs text-gray-400">{tDep(lang, "detailAccumPct")}</p>
                     <p className="text-orange-400 font-semibold">{depreciationPct}%</p>
                   </div>
 
                   <div className="space-y-1">
-                    <p className="text-xs text-gray-400">السنوات المتبقية</p>
-                    <p className="text-emerald-400 font-semibold">{yearsRemaining} سنة</p>
+                    <p className="text-xs text-gray-400">{tDep(lang, "detailYearsLeft")}</p>
+                    <p className="text-emerald-400 font-semibold">{yearsRemaining} {yr}</p>
                   </div>
 
                   <div className="col-span-2 md:col-span-4 space-y-2">
                     <div className="flex justify-between text-xs text-gray-400">
-                      <span>نسبة الاستهلاك</span>
+                      <span>{tDep(lang, "detailConsumPct")}</span>
                       <span>{depreciationPct}%</span>
                     </div>
                     <div className="h-2 bg-white/10 rounded-full overflow-hidden">
@@ -134,38 +128,34 @@ function AssetRow({ asset, onEdit }: AssetRowProps) {
   );
 }
 
-export default function DepreciationTable() {
-  const { data, loading, openEdit } = useDepreciation();
+export default function DepreciationTable({ lang }: DepreciationTableProps) {
+  const { data, openEdit } = useDepreciation();
+  if (!data) return null;
 
   return (
     <GlassCard>
-      <h2 className="text-xl font-bold text-white mb-6">سجل الأصول</h2>
-
-      {loading && <Skeleton />}
-
-      {!loading && data && (
-        <div className="overflow-x-auto">
-          <table className="w-full">
-            <thead>
-              <tr className="border-b border-white/10">
-                <th className="text-right py-4 px-4 text-gray-400 font-medium">اسم الأصل</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-medium">التكلفة</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-medium">العمر الإنتاجي</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-medium">طريقة الإهلاك</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-medium">الإهلاك السنوي</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-medium">الإهلاك المتراكم</th>
-                <th className="text-right py-4 px-4 text-gray-400 font-medium">القيمة الدفترية</th>
-                <th className="py-4 px-4" />
-              </tr>
-            </thead>
-            <tbody>
-              {data.assets.map((asset: DepreciationAsset) => (
-                <AssetRow key={asset.id} asset={asset} onEdit={openEdit} />
-              ))}
-            </tbody>
-          </table>
-        </div>
-      )}
+      <h2 className="text-xl font-bold text-white mb-6">{tDep(lang, "tableTitle")}</h2>
+      <div className="overflow-x-auto">
+        <table className="w-full">
+          <thead>
+            <tr className="border-b border-white/10">
+              <th className="text-right py-4 px-4 text-gray-400 font-medium">{tDep(lang, "colAssetName")}</th>
+              <th className="text-right py-4 px-4 text-gray-400 font-medium">{tDep(lang, "colCost")}</th>
+              <th className="text-right py-4 px-4 text-gray-400 font-medium">{tDep(lang, "colUsefulLife")}</th>
+              <th className="text-right py-4 px-4 text-gray-400 font-medium">{tDep(lang, "colMethod")}</th>
+              <th className="text-right py-4 px-4 text-gray-400 font-medium">{tDep(lang, "colAnnualDep")}</th>
+              <th className="text-right py-4 px-4 text-gray-400 font-medium">{tDep(lang, "colAccumulated")}</th>
+              <th className="text-right py-4 px-4 text-gray-400 font-medium">{tDep(lang, "colBookValue")}</th>
+              <th className="py-4 px-4" />
+            </tr>
+          </thead>
+          <tbody>
+            {data.assets.map((asset) => (
+              <AssetRow key={asset.id} asset={asset} onEdit={openEdit} lang={lang} />
+            ))}
+          </tbody>
+        </table>
+      </div>
     </GlassCard>
   );
 }

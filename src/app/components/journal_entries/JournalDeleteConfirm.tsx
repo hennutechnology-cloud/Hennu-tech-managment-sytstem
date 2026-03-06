@@ -5,8 +5,9 @@ import { useState } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 import type { DeleteConfirmProps } from "../../core/models/JournalEntries.types";
+import { tJE, tJEInterp } from "../../core/i18n/journalEntries.i18n";
 
-export default function JournalDeleteConfirm({ isOpen, entry, onConfirm, onCancel }: DeleteConfirmProps) {
+export default function JournalDeleteConfirm({ lang, isOpen, entry, onConfirm, onCancel }: DeleteConfirmProps) {
   const [deleting, setDeleting] = useState(false);
 
   const handleConfirm = async () => {
@@ -40,23 +41,32 @@ export default function JournalDeleteConfirm({ isOpen, entry, onConfirm, onCance
                 <div className="w-16 h-16 rounded-full bg-red-500/10 border border-red-500/20 flex items-center justify-center mb-5">
                   <AlertTriangle className="w-8 h-8 text-red-400" />
                 </div>
-                <h3 className="text-lg font-bold text-white mb-2">تأكيد الحذف</h3>
-                <p className="text-sm text-gray-400 mb-1">هل أنت متأكد من حذف القيد</p>
+                <h3 className="text-lg font-bold text-white mb-2">{tJE(lang, "deleteTitle")}</h3>
+                <p className="text-sm text-gray-400 mb-1">{tJE(lang, "deleteQuestion")}</p>
+                {/* Dynamic API data — rendered directly */}
                 <p className="text-base font-semibold text-white mb-1 px-2">{entry.description}</p>
                 <p className="text-xs font-mono text-orange-400 mb-2">{entry.date}</p>
-                <p className="text-xs text-gray-500 mb-2">{entry.totalDebit.toLocaleString()} ر.س — {entry.lines.length} سطر</p>
-                <p className="text-xs text-gray-500 mb-6">لا يمكن التراجع عن هذه العملية</p>
+                <p className="text-xs text-gray-500 mb-2">
+                  {entry.totalDebit.toLocaleString()} {tJE(lang, "currency")} —{" "}
+                  {tJEInterp(lang, "linesCount", { n: entry.lines.length })}
+                </p>
+                <p className="text-xs text-gray-500 mb-6">{tJE(lang, "deleteIrreversible")}</p>
                 <div className="flex items-center gap-3 w-full">
-                  <button onClick={onCancel} className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm flex items-center justify-center gap-2">
-                    <X className="w-4 h-4" /> إلغاء
+                  <button
+                    onClick={onCancel}
+                    className="flex-1 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm flex items-center justify-center gap-2"
+                  >
+                    <X className="w-4 h-4" /> {tJE(lang, "cancel")}
                   </button>
                   <button
                     onClick={handleConfirm}
                     disabled={deleting}
                     className="flex-1 py-2.5 rounded-xl bg-gradient-to-l from-red-600 to-red-500 text-white text-sm font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-red-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                   >
-                    {deleting ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Trash2 className="w-4 h-4" />}
-                    نعم، احذف
+                    {deleting
+                      ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      : <Trash2 className="w-4 h-4" />}
+                    {deleting ? tJE(lang, "deleting") : tJE(lang, "deleteConfirmBtn")}
                   </button>
                 </div>
               </div>

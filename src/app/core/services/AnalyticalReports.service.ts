@@ -1,7 +1,5 @@
 // ============================================================
 // AnalyticalReports.service.ts
-// Fetch layer + context definition + state hook.
-// Provider JSX lives in AnalyticalReportsProvider.tsx
 // ============================================================
 import { createContext, useContext, useState, useEffect } from "react";
 import type {
@@ -16,45 +14,48 @@ export async function fetchAnalyticalReports(
   _dateRange: DateRange,
   _reportType: ReportType,
 ): Promise<AnalyticalReportsData> {
-  // TODO: replace with real API call
+  // TODO: replace with real API call:
   // const params = new URLSearchParams({ from: _dateRange.from, to: _dateRange.to, type: _reportType });
   // const res = await fetch(`/api/analytical-reports?${params}`);
   // if (!res.ok) throw new Error("Failed to fetch");
   // return res.json();
 
+  // Static seed — mirrors real API response shape.
+  // The API returns report names, month labels, and category names
+  // as plain strings already in the user's language.
+  // The frontend never translates these values.
   return {
     quickReports: [
-      { id: "cashflow",    name: "تقرير التدفق النقدي", color: "from-blue-500 to-blue-600"     },
+      { id: "cashflow",    name: "تقرير التدفق النقدي", color: "from-blue-500 to-blue-600"       },
       { id: "profit",      name: "تحليل الربحية",       color: "from-emerald-500 to-emerald-600" },
       { id: "cost",        name: "تحليل التكاليف",       color: "from-red-500 to-red-600"         },
       { id: "customers",   name: "تقرير العملاء",        color: "from-purple-500 to-purple-600"   },
       { id: "suppliers",   name: "تقرير الموردين",       color: "from-orange-500 to-orange-600"   },
       { id: "expenses",    name: "تحليل المصروفات",      color: "from-pink-500 to-pink-600"       },
     ],
+    // month is a number (1–12) — frontend resolves to name via SHORT_MONTHS[lang]
     profitability: [
-      { month: "يناير",  margin: 28.5, roi: 12.3 },
-      { month: "فبراير", margin: 31.8, roi: 14.1 },
-      { month: "مارس",   margin: 34.6, roi: 15.7 },
-      { month: "أبريل",  margin: 27.5, roi: 11.8 },
-      { month: "مايو",   margin: 33.3, roi: 16.2 },
-      { month: "يونيو",  margin: 36.1, roi: 18.5 },
+      { month: 1, margin: 28.5, roi: 12.3 },
+      { month: 2, margin: 31.8, roi: 14.1 },
+      { month: 3, margin: 34.6, roi: 15.7 },
+      { month: 4, margin: 27.5, roi: 11.8 },
+      { month: 5, margin: 33.3, roi: 16.2 },
+      { month: 6, margin: 36.1, roi: 18.5 },
     ],
+    // category is a plain string from the API — already in the user's language
     expenseBreakdown: [
-      { category: "الرواتب",  amount: 2_200_000 },
-      { category: "المواد",   amount: 3_200_000 },
-      { category: "المعدات",  amount: 1_800_000 },
-      { category: "النقل",    amount:   750_000 },
-      { category: "الإيجارات", amount:  800_000 },
-      { category: "إدارية",   amount:   500_000 },
+      { category: "الرواتب",   amount: 2_200_000 },
+      { category: "المواد",    amount: 3_200_000 },
+      { category: "المعدات",   amount: 1_800_000 },
+      { category: "النقل",     amount:   750_000 },
+      { category: "الإيجارات", amount:   800_000 },
+      { category: "إدارية",    amount:   500_000 },
     ],
   };
 }
 
 export async function exportQuickReport(reportId: string, dateRange: DateRange): Promise<void> {
   // TODO: replace with real API call
-  // const res = await fetch(`/api/reports/${reportId}/export`, { method: "POST", body: JSON.stringify(dateRange) });
-  // const blob = await res.blob();
-  // ... trigger download
   console.log("Exporting report", reportId, dateRange);
 }
 
@@ -94,7 +95,7 @@ export function useAnalyticalReportsState(): AnalyticalReportsContextValue {
     setError(null);
     fetchAnalyticalReports(dateRange, reportType)
       .then((res) => { if (!cancelled) setData(res); })
-      .catch(() => { if (!cancelled) setError("تعذّر تحميل البيانات"); })
+      .catch(() => { if (!cancelled) setError("failed"); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, [trigger]);

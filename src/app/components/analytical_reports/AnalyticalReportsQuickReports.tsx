@@ -1,22 +1,19 @@
 // ============================================================
 // AnalyticalReportsQuickReports.tsx
+// report.name comes as a plain API string — render directly.
+// Only section titles and PDF labels go through tAR().
 // ============================================================
-import { motion } from "motion/react";
+import { motion }    from "motion/react";
 import { FileText, Download } from "lucide-react";
-import GlassCard from "../../core/shared/components/GlassCard";
+import GlassCard     from "../../core/shared/components/GlassCard";
 import { exportPdf } from "../../core/shared/components/exportPdf";
-import { exportQuickReport, useAnalyticalReports } from "../../core/services/AnalyticalReports.service";
+import { exportQuickReport, useAnalyticalReports }
+                     from "../../core/services/AnalyticalReports.service";
+import { tAR, formatDateDisplay, formatNum }
+                     from "../../core/i18n/analyticalReports.i18n";
+import type { Lang } from "../../core/models/Settings.types";
 
-const MONTHS_AR = [
-  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
-  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
-];
-
-function formatDate(v: string): string {
-  if (!v) return "";
-  const [y, m, d] = v.split("-");
-  return `${parseInt(d)} ${MONTHS_AR[parseInt(m) - 1]} ${y}`;
-}
+interface Props { lang: Lang; }
 
 function Skeleton() {
   return (
@@ -28,17 +25,17 @@ function Skeleton() {
   );
 }
 
-export default function AnalyticalReportsQuickReports() {
+export default function AnalyticalReportsQuickReports({ lang }: Props) {
   const { data, loading, dateRange } = useAnalyticalReports();
 
   async function handleDownload(reportId: string, reportName: string) {
     await exportQuickReport(reportId, dateRange);
     exportPdf({
       title:    reportName,
-      subtitle: "تقرير تحليلي",
+      subtitle: tAR(lang, "analyticalReport"),
       metaItems: [
-        { label: "من تاريخ",  value: formatDate(dateRange.from) },
-        { label: "إلى تاريخ", value: formatDate(dateRange.to)   },
+        { label: tAR(lang, "fromDate"), value: formatDateDisplay(dateRange.from, lang) },
+        { label: tAR(lang, "toDate"),   value: formatDateDisplay(dateRange.to,   lang) },
       ],
       sections: [{
         html: `
@@ -48,8 +45,10 @@ export default function AnalyticalReportsQuickReports() {
               ${reportName}
             </div>
             <div class="stmt-row">
-              <span class="lbl">الفترة</span>
-              <span class="amt">${formatDate(dateRange.from)} — ${formatDate(dateRange.to)}</span>
+              <span class="lbl">${tAR(lang, "period")}</span>
+              <span class="amt">
+                ${formatDateDisplay(dateRange.from, lang)} — ${formatDateDisplay(dateRange.to, lang)}
+              </span>
             </div>
           </div>
         `,
@@ -59,7 +58,7 @@ export default function AnalyticalReportsQuickReports() {
 
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-4">التقارير السريعة</h2>
+      <h2 className="text-2xl font-bold text-white mb-4">{tAR(lang, "quickReportsTitle")}</h2>
 
       {loading && <Skeleton />}
 
@@ -78,6 +77,7 @@ export default function AnalyticalReportsQuickReports() {
                     <FileText className="w-6 h-6 text-white" />
                   </div>
                   <div className="flex-1">
+                    {/* report.name is a plain API string — render directly */}
                     <h3 className="font-medium text-white">{report.name}</h3>
                   </div>
                   <button

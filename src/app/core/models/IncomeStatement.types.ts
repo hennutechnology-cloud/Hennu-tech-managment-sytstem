@@ -1,44 +1,47 @@
 // ============================================================
 // IncomeStatement.types.ts
+// All numeric data — rendered via formatNum()/sar() from i18n.
+// period.label is a plain API string returned in user's language.
 // ============================================================
+import type { Lang } from "./Settings.types";
 
 export interface RevenueSection {
-  sales: number;
+  sales:       number;
   otherIncome: number;
-  total: number;
+  total:       number;
 }
 
 export interface CogsSection {
   materials: number;
-  labor: number;
-  other: number;
-  total: number;
+  labor:     number;
+  other:     number;
+  total:     number;
 }
 
 export interface OperatingExpensesSection {
-  salaries: number;
-  rent: number;
+  salaries:       number;
+  rent:           number;
   administrative: number;
-  utilities: number;
-  marketing: number;
-  depreciation: number;
-  total: number;
+  utilities:      number;
+  marketing:      number;
+  depreciation:   number;
+  total:          number;
 }
 
 export interface OtherExpensesSection {
   interest: number;
-  taxes: number;
-  total: number;
+  taxes:    number;
+  total:    number;
 }
 
 export interface IncomeStatementData {
-  revenue: RevenueSection;
-  cogs: CogsSection;
-  grossProfit: number;
+  revenue:           RevenueSection;
+  cogs:              CogsSection;
+  grossProfit:       number;
   operatingExpenses: OperatingExpensesSection;
-  operatingIncome: number;
-  otherExpenses: OtherExpensesSection;
-  netIncome: number;
+  operatingIncome:   number;
+  otherExpenses:     OtherExpensesSection;
+  netIncome:         number;
 }
 
 export type PeriodKey =
@@ -49,28 +52,31 @@ export type PeriodKey =
   | "q4_2026";
 
 export interface Period {
-  key: PeriodKey;
-  label: string;
+  key:   PeriodKey;
+  label: string;  // plain API string — already in user's language
 }
 
 // ── Component Props ────────────────────────────────────────────
-
 export interface IncomeHeaderProps {
-  onExport: () => void;
+  onExport:  () => void;
   exporting: boolean;
+  lang:      Lang;
 }
 
 export interface PeriodSelectorProps {
   selected: PeriodKey;
-  periods: Period[];
+  periods:  Period[];
   onChange: (key: PeriodKey) => void;
+  lang:     Lang;
 }
 
 export interface IncomeStatementBodyProps {
   data: IncomeStatementData;
+  lang: Lang;
 }
 
 export interface NoDataAlertProps {
-  isOpen: boolean;
+  isOpen:  boolean;
   onClose: () => void;
+  lang:    Lang;
 }

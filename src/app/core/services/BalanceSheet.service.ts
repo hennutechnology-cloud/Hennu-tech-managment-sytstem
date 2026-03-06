@@ -4,8 +4,6 @@
 import { createContext, useContext, useState, useEffect } from "react";
 import type { BalanceSheetData } from "../models/BalanceSheet.types";
 
-// ── Fetch layer ───────────────────────────────────────────────
-
 export async function fetchBalanceSheet(asOf: string): Promise<BalanceSheetData> {
   // TODO: replace with real API call
   // const res = await fetch(`/api/balance-sheet?asOf=${asOf}`);
@@ -16,12 +14,12 @@ export async function fetchBalanceSheet(asOf: string): Promise<BalanceSheetData>
     asOf,
     assets: {
       currentAssets: {
-        cash:         850_000,
-        bank1:      4_200_000,
-        bank2:      3_800_000,
+        cash:          850_000,
+        bank1:       4_200_000,
+        bank2:       3_800_000,
         receivables: 12_500_000,
-        inventory:  23_650_000,
-        total:      45_000_000,
+        inventory:   23_650_000,
+        total:       45_000_000,
       },
       fixedAssets: {
         land:      15_000_000,
@@ -55,14 +53,12 @@ export async function fetchBalanceSheet(asOf: string): Promise<BalanceSheetData>
   };
 }
 
-// ── Context definition + hook ─────────────────────────────────
-
 export interface BalanceSheetContextValue {
   asOf:    string;
   setAsOf: (v: string) => void;
   data:    BalanceSheetData | null;
   loading: boolean;
-  error:   string | null;
+  error:   boolean;   // boolean flag — component resolves the display string
 }
 
 export const BalanceSheetContext = createContext<BalanceSheetContextValue | null>(null);
@@ -77,18 +73,16 @@ export function useBalanceSheetState() {
   const [asOf,    setAsOf]    = useState("2026-02-21");
   const [data,    setData]    = useState<BalanceSheetData | null>(null);
   const [loading, setLoading] = useState(false);
-  const [error,   setError]   = useState<string | null>(null);
+  const [error,   setError]   = useState(false);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
-
+    setError(false);
     fetchBalanceSheet(asOf)
       .then((res) => { if (!cancelled) setData(res); })
-      .catch(() => { if (!cancelled) setError("تعذّر تحميل البيانات"); })
+      .catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
-
     return () => { cancelled = true; };
   }, [asOf]);
 

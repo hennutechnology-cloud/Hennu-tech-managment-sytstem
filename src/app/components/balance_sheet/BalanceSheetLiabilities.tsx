@@ -1,26 +1,30 @@
 // ============================================================
 // BalanceSheetLiabilities.tsx
 // ============================================================
-import { motion } from "motion/react";
-import GlassCard from "../../core/shared/components/GlassCard";
+import { motion }          from "motion/react";
+import GlassCard           from "../../core/shared/components/GlassCard";
 import { useBalanceSheet } from "../../core/services/BalanceSheet.service";
+import { tBS, formatNum }  from "../../core/i18n/balanceSheet.i18n";
+import type { Lang }       from "../../core/models/Settings.types";
 
-function num(n: number): string { return n.toLocaleString("ar-SA"); }
+interface Props { lang: Lang; }
 
-function Row({ label, value }: { label: string; value: number }) {
+function Row({ label, value, lang }: { label: string; value: number; lang: Lang }) {
   return (
     <div className="flex items-center justify-between py-2">
       <span className="text-gray-300">{label}</span>
-      <span className="text-white font-medium">{num(value)}</span>
+      <span className="text-white font-medium">{formatNum(value, lang)}</span>
     </div>
   );
 }
 
-function Subtotal({ label, value, color = "text-red-400" }: { label: string; value: number; color?: string }) {
+function Subtotal({
+  label, value, lang, color = "text-red-400",
+}: { label: string; value: number; lang: Lang; color?: string }) {
   return (
     <div className="flex items-center justify-between py-3 border-t border-white/10">
       <span className="text-white font-bold">{label}</span>
-      <span className={`${color} font-bold`}>{num(value)}</span>
+      <span className={`${color} font-bold`}>{formatNum(value, lang)}</span>
     </div>
   );
 }
@@ -35,7 +39,7 @@ function Skeleton() {
   );
 }
 
-export default function BalanceSheetLiabilities() {
+export default function BalanceSheetLiabilities({ lang }: Props) {
   const { data, loading } = useBalanceSheet();
 
   return (
@@ -46,52 +50,66 @@ export default function BalanceSheetLiabilities() {
         className="space-y-6"
       >
         <h2 className="text-2xl font-bold text-white border-b border-white/10 pb-4">
-          الخصوم وحقوق الملكية
+          {tBS(lang, "liabilitiesEquityTitle")}
         </h2>
 
         {loading && <Skeleton />}
 
         {!loading && data && (
           <>
+            {/* Current liabilities */}
             <div>
-              <h3 className="text-lg font-bold text-white mb-4">الخصوم المتداولة</h3>
+              <h3 className="text-lg font-bold text-white mb-4">{tBS(lang, "currentLiabTitle")}</h3>
               <div className="space-y-1 pr-6">
-                <Row label="الموردون"          value={data.liabilities.currentLiabilities.payables} />
-                <Row label="قروض قصيرة الأجل" value={data.liabilities.currentLiabilities.shortTermLoans} />
-                <Row label="مستحقات ضريبية"   value={data.liabilities.currentLiabilities.taxes} />
-                <Subtotal label="إجمالي الخصوم المتداولة" value={data.liabilities.currentLiabilities.total} />
+                <Row label={tBS(lang, "payables")}       value={data.liabilities.currentLiabilities.payables}       lang={lang} />
+                <Row label={tBS(lang, "shortTermLoans")} value={data.liabilities.currentLiabilities.shortTermLoans} lang={lang} />
+                <Row label={tBS(lang, "taxes")}          value={data.liabilities.currentLiabilities.taxes}          lang={lang} />
+                <Subtotal label={tBS(lang, "totalCurrentLiab")} value={data.liabilities.currentLiabilities.total} lang={lang} />
               </div>
             </div>
 
+            {/* Long-term liabilities */}
             <div className="pt-4 border-t border-white/10">
-              <h3 className="text-lg font-bold text-white mb-4">الخصوم طويلة الأجل</h3>
+              <h3 className="text-lg font-bold text-white mb-4">{tBS(lang, "longTermLiabTitle")}</h3>
               <div className="space-y-1 pr-6">
-                <Row label="قروض طويلة الأجل" value={data.liabilities.longTermLiabilities.longTermLoans} />
-                <Row label="سندات"             value={data.liabilities.longTermLiabilities.bonds} />
-                <Subtotal label="إجمالي الخصوم طويلة الأجل" value={data.liabilities.longTermLiabilities.total} />
+                <Row label={tBS(lang, "longTermLoans")} value={data.liabilities.longTermLiabilities.longTermLoans} lang={lang} />
+                <Row label={tBS(lang, "bonds")}         value={data.liabilities.longTermLiabilities.bonds}         lang={lang} />
+                <Subtotal label={tBS(lang, "totalLongTermLiab")} value={data.liabilities.longTermLiabilities.total} lang={lang} />
               </div>
             </div>
 
+            {/* Total liabilities highlight */}
             <div className="py-3 bg-red-500/10 rounded-xl px-4 border border-red-500/20">
               <div className="flex items-center justify-between">
-                <span className="text-white font-bold">إجمالي الخصوم</span>
-                <span className="text-red-400 font-bold text-lg">{num(data.liabilities.totalLiabilities)}</span>
+                <span className="text-white font-bold">{tBS(lang, "totalLiabilities")}</span>
+                <span className="text-red-400 font-bold text-lg">
+                  {formatNum(data.liabilities.totalLiabilities, lang)}
+                </span>
               </div>
             </div>
 
+            {/* Equity */}
             <div className="pt-4 border-t border-white/10">
-              <h3 className="text-lg font-bold text-white mb-4">حقوق الملكية</h3>
+              <h3 className="text-lg font-bold text-white mb-4">{tBS(lang, "equityTitle")}</h3>
               <div className="space-y-1 pr-6">
-                <Row label="رأس المال"         value={data.equity.capital} />
-                <Row label="الأرباح المحتجزة" value={data.equity.retainedEarnings} />
-                <Subtotal label="إجمالي حقوق الملكية" value={data.equity.totalEquity} color="text-blue-400" />
+                <Row label={tBS(lang, "capital")}          value={data.equity.capital}          lang={lang} />
+                <Row label={tBS(lang, "retainedEarnings")} value={data.equity.retainedEarnings} lang={lang} />
+                <Subtotal
+                  label={tBS(lang, "totalEquity")}
+                  value={data.equity.totalEquity}
+                  lang={lang}
+                  color="text-blue-400"
+                />
               </div>
             </div>
 
+            {/* Grand total */}
             <div className="py-4 bg-[#F97316]/10 rounded-xl px-4 border border-[#F97316]/20">
               <div className="flex items-center justify-between">
-                <span className="text-white font-bold text-xl">إجمالي الخصوم وحقوق الملكية</span>
-                <span className="text-[#F97316] font-bold text-2xl">{num(data.totalLiabilitiesAndEquity)}</span>
+                <span className="text-white font-bold text-xl">{tBS(lang, "totalLiabilitiesEquity")}</span>
+                <span className="text-[#F97316] font-bold text-2xl">
+                  {formatNum(data.totalLiabilitiesAndEquity, lang)}
+                </span>
               </div>
             </div>
           </>

@@ -1,66 +1,60 @@
+// ============================================================
+// ProjectStats.tsx
+// All labels go through tProj(). Values are plain numbers.
+// ============================================================
+import { Building2, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { motion } from "motion/react";
-import { Building2, CheckCircle2, Clock, AlertTriangle } from "lucide-react";
-import GlassCard from "../../core/shared/components/GlassCard";
-import type { Project } from "../../core/models/projects.types";
+import GlassCard  from "../../core/shared/components/GlassCard";
+import { tProj, dirAttr } from "../../core/i18n/projects.i18n";
+import type { ProjectStatsProps } from "../../core/models/projects.types";
 
-interface ProjectsStatsProps {
-  projects: Project[];
-}
-
-export default function ProjectsStats({ projects }: ProjectsStatsProps) {
-  const stats = [
+export default function ProjectStats({ stats, lang }: ProjectStatsProps) {
+  const cards = [
     {
-      label: "إجمالي المشاريع",
-      value: projects.length,
-      icon: Building2,
-      color: "text-blue-400",
-      bg: "bg-blue-500/20",
-      border: "border-blue-500/30",
-    },
-    {
-      label: "المشاريع النشطة",
-      value: projects.filter((p) => p.status === "active").length,
-      icon: Clock,
+      key:   "statsTotal",
+      value: stats.total,
+      icon:  Building2,
       color: "text-[#F97316]",
-      bg: "bg-[#F97316]/20",
-      border: "border-[#F97316]/30",
     },
     {
-      label: "المشاريع المكتملة",
-      value: projects.filter((p) => p.status === "completed").length,
-      icon: CheckCircle2,
+      key:   "statsActive",
+      value: stats.active,
+      icon:  Clock,
+      color: "text-blue-400",
+    },
+    {
+      key:   "statsCompleted",
+      value: stats.completed,
+      icon:  CheckCircle2,
       color: "text-emerald-400",
-      bg: "bg-emerald-500/20",
-      border: "border-emerald-500/30",
     },
     {
-      label: "المشاريع المتأخرة",
-      value: projects.filter((p) => p.status === "delayed").length,
-      icon: AlertTriangle,
+      key:   "statsDelayed",
+      value: stats.delayed,
+      icon:  AlertTriangle,
       color: "text-red-400",
-      bg: "bg-red-500/20",
-      border: "border-red-500/30",
     },
-  ];
+  ] as const;
 
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-      {stats.map((stat, index) => (
+    <div
+      dir={dirAttr(lang)}
+      className="grid grid-cols-1 md:grid-cols-4 gap-4"
+    >
+      {cards.map(({ key, value, icon: Icon, color }, i) => (
         <motion.div
-          key={stat.label}
-          initial={{ opacity: 0, y: 20 }}
+          key={key}
+          initial={{ opacity: 0, y: 16 }}
           animate={{ opacity: 1, y: 0 }}
-          transition={{ delay: index * 0.1 }}
+          transition={{ delay: i * 0.08 }}
         >
-          <GlassCard className={`border ${stat.border}`}>
-            <div className="flex items-center gap-4">
-              <div className={`p-3 ${stat.bg} rounded-xl`}>
-                <stat.icon className={`w-6 h-6 ${stat.color}`} />
-              </div>
+          <GlassCard hover>
+            <div className="flex items-center justify-between">
               <div>
-                <p className="text-gray-400 text-sm">{stat.label}</p>
-                <p className={`text-3xl font-bold ${stat.color}`}>{stat.value}</p>
+                <p className="text-gray-400 text-sm mb-1">{tProj(lang, key)}</p>
+                <h3 className="text-2xl font-bold text-white">{value}</h3>
               </div>
+              <Icon className={`w-10 h-10 ${color}`} />
             </div>
           </GlassCard>
         </motion.div>

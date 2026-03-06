@@ -1,17 +1,22 @@
 // ============================================================
 // BalanceSheetDatePicker.tsx
 // ============================================================
-import GlassCard from "../../core/shared/components/GlassCard";
-import DatePicker from "../../core/shared/components/DatePicker";
+import GlassCard          from "../../core/shared/components/GlassCard";
+import DatePicker         from "../../core/shared/components/DatePicker";
 import { useBalanceSheet } from "../../core/services/BalanceSheet.service";
+import { tBS }            from "../../core/i18n/balanceSheet.i18n";
+import type { Lang }      from "../../core/models/Settings.types";
 
-export default function BalanceSheetDatePicker() {
+interface Props { lang: Lang; }
+
+export default function BalanceSheetDatePicker({ lang }: Props) {
   const { asOf, setAsOf } = useBalanceSheet();
 
   return (
     <GlassCard>
       <DatePicker
-        label="كما في"
+        lang={lang}
+        label={tBS(lang, "asOf")}
         value={asOf}
         onChange={setAsOf}
       />

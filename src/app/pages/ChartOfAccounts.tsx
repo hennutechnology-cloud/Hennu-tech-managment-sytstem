@@ -1,3 +1,6 @@
+// ============================================================
+// ChartOfAccounts.tsx — page
+// ============================================================
 import { useEffect, useState } from "react";
 import ChartHeader   from "../components/chart_of_accounts/ChartHeader";
 import AccountsTree  from "../components/chart_of_accounts/AccountsTree";
@@ -5,30 +8,27 @@ import SummaryCards  from "../components/chart_of_accounts/SummaryCards";
 import AccountModal  from "../components/chart_of_accounts/AccountModal";
 import DeleteConfirm from "../components/chart_of_accounts/DeleteConfirm";
 import {
-  fetchAccounts,
-  fetchAccountSummary,
-  createAccount,
-  updateAccount,
-  deleteAccount,
+  fetchAccounts, fetchAccountSummary,
+  createAccount, updateAccount, deleteAccount,
 } from "../core/services/ChartOfAccounts.service";
-import type {
-  Account,
-  AccountSummary,
-  AccountFormValues,
-} from "../core/models/ChartOfAccounts.types";
+import type { Account, AccountSummary, AccountFormValues }
+  from "../core/models/ChartOfAccounts.types";
+import { useLang }  from "../core/context/LangContext";
+import { tCOA }     from "../core/i18n/chartOfAccounts.i18n";
 
-// Always ensure we store an array no matter what the service returns
 function safeArray(val: unknown): Account[] {
   return Array.isArray(val) ? (val as Account[]) : [];
 }
 
 export default function ChartOfAccounts() {
+  const { lang } = useLang();
+
   const [accounts, setAccounts] = useState<Account[]>([]);
   const [summary,  setSummary]  = useState<AccountSummary | null>(null);
   const [loading,  setLoading]  = useState(true);
 
-  const [modalOpen,   setModalOpen]   = useState(false);
-  const [editAccount, setEditAccount] = useState<Account | null>(null);
+  const [modalOpen,    setModalOpen]    = useState(false);
+  const [editAccount,  setEditAccount]  = useState<Account | null>(null);
   const [deleteOpen,   setDeleteOpen]   = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<Account | null>(null);
 
@@ -41,35 +41,16 @@ export default function ChartOfAccounts() {
       .finally(() => setLoading(false));
   }, []);
 
-  const handleAddAccount = () => {
-    setEditAccount(null);
-    setModalOpen(true);
-  };
-
-  const handleEdit = (account: Account) => {
-    setEditAccount(account);
-    setModalOpen(true);
-  };
-
-  const handleDeleteRequest = (account: Account) => {
-    setDeleteTarget(account);
-    setDeleteOpen(true);
-  };
-
   const handleSave = async (values: AccountFormValues) => {
-    let updated: Account[];
-    if (editAccount) {
-      updated = safeArray(await updateAccount(values));
-    } else {
-      updated = safeArray(await createAccount(values));
-    }
+    const updated = safeArray(
+      await (editAccount ? updateAccount(values) : createAccount(values))
+    );
     setAccounts(updated);
   };
 
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
-    const updated = safeArray(await deleteAccount(deleteTarget.code));
-    setAccounts(updated);
+    setAccounts(safeArray(await deleteAccount(deleteTarget.code)));
     setDeleteOpen(false);
     setDeleteTarget(null);
   };
@@ -79,7 +60,7 @@ export default function ChartOfAccounts() {
       <div className="flex items-center justify-center h-64">
         <div className="flex items-center gap-3 text-gray-400">
           <span className="w-5 h-5 border-2 border-gray-600 border-t-orange-500 rounded-full animate-spin" />
-          جارٍ التحميل…
+          {tCOA(lang, "loading")}
         </div>
       </div>
     );
@@ -87,17 +68,22 @@ export default function ChartOfAccounts() {
 
   return (
     <div className="space-y-8">
-      <ChartHeader onAddAccount={handleAddAccount} />
-
-      <AccountsTree
-        accounts={accounts}
-        onEdit={handleEdit}
-        onDelete={handleDeleteRequest}
+      <ChartHeader
+        lang={lang}
+        onAddAccount={() => { setEditAccount(null); setModalOpen(true); }}
       />
 
-      {summary && <SummaryCards summary={summary} />}
+      <AccountsTree
+        lang={lang}
+        accounts={accounts}
+        onEdit={(acc) => { setEditAccount(acc); setModalOpen(true); }}
+        onDelete={(acc) => { setDeleteTarget(acc); setDeleteOpen(true); }}
+      />
+
+      {summary && <SummaryCards lang={lang} summary={summary} />}
 
       <AccountModal
+        lang={lang}
         isOpen={modalOpen}
         editAccount={editAccount}
         accounts={accounts}
@@ -106,6 +92,7 @@ export default function ChartOfAccounts() {
       />
 
       <DeleteConfirm
+        lang={lang}
         isOpen={deleteOpen}
         account={deleteTarget}
         onConfirm={handleDeleteConfirm}

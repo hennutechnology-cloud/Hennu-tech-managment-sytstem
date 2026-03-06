@@ -1,3 +1,6 @@
+// ============================================================
+// ChartOfAccounts.service.ts — fetch layer + context definition
+// ============================================================
 import type { Account, AccountFormValues, AccountSummary } from "../models/ChartOfAccounts.types";
 
 // ---------------------------------------------------------------------------

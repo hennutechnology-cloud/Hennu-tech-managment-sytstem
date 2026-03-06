@@ -1,9 +1,9 @@
 // ============================================================
 // exportPdf.ts  — SHARED reusable PDF export engine
 //
-// Opens a styled Arabic A4 HTML report in a new browser window
+// Opens a styled A4 HTML report in a new browser window
 // and triggers the browser's native Save-as-PDF dialog.
-// No external libraries needed — perfect Arabic RTL rendering.
+// No external libraries needed — full RTL/LTR switching.
 //
 // ── HOW TO USE IN ANY REPORT ─────────────────────────────────
 //
@@ -11,33 +11,33 @@
 //   import type { ExportPdfOptions } from "../shared/exportPdf";
 //
 //   exportPdf({
-//     title:     "قائمة الدخل",
-//     subtitle:  "بيان الأرباح والخسائر",
-//     metaItems: [{ label: "الفترة", value: "يناير — ديسمبر 2026" }],
+//     lang:      lang,           // "ar" | "en"  ← NEW, required
+//     title:     "Income Statement",
+//     subtitle:  "Profit & Loss",
+//     metaItems: [{ label: "Period", value: "Jan — Dec 2026" }],
 //     kpiCards: [
-//       { label: "صافي الربح", value: "4,000,000 ر.س", color: "orange" },
+//       { label: "Net Income", value: "4,000,000 SAR", color: "orange" },
 //     ],
 //     sections: [{ html: "<p>...</p>" }],
 //   });
 //
 // ── AVAILABLE CSS CLASSES IN sections[].html ─────────────────
 //
-//   Layout:        .section-title
+//   Layout:         .section-title
 //   Statement rows: .stmt-section  .stmt-section-title  .dot
 //                   .stmt-row (.lbl / .amt)
 //                   .stmt-subtotal (.lbl / .amt)
 //                   .stmt-highlight (.lbl / .amt)
 //                   .net-income (.lbl / .amt)
-//   Tables:        table  thead  .row-even  .row-odd
-//                  .totals-row
+//   Tables:         table  thead  .row-even  .row-odd
+//                   .totals-row
 // ============================================================
 
 export type KpiColor = "orange" | "green" | "red" | "blue" | "slate";
 
 export interface KpiCard {
-  /** Arabic label */
   label: string;
-  /** Pre-formatted value string, e.g. "4,000,000 ر.س" */
+  /** Pre-formatted value string, e.g. "4,000,000 SAR" */
   value: string;
   /** Optional small unit shown below value */
   unit?: string;
@@ -50,21 +50,26 @@ export interface MetaItem {
 }
 
 export interface PdfSection {
-  /**
-   * Raw HTML injected into the content area in order.
-   * Use the CSS utility classes listed above.
-   */
   html: string;
 }
 
 export interface ExportPdfOptions {
-  /** Main report title shown in the orange header badge */
+  /**
+   * Language of the report. Controls:
+   *   - document dir (rtl / ltr)
+   *   - "Printed on" label
+   *   - date locale for the print timestamp
+   *   - font-family fallback order
+   * Defaults to "ar" if omitted (backwards-compatible).
+   */
+  lang?: "ar" | "en";
+  /** Main report title shown in the header badge */
   title: string;
   /** Optional subtitle below title */
   subtitle?: string;
   /**
    * Items shown in the meta info bar.
-   * "تاريخ الطباعة" is appended automatically.
+   * The print-date item is appended automatically.
    */
   metaItems: MetaItem[];
   /** KPI summary cards. Pass [] or omit to skip the card row entirely. */
@@ -73,7 +78,19 @@ export interface ExportPdfOptions {
   sections: PdfSection[];
 }
 
-// ── Internal ──────────────────────────────────────────────────────────────
+// ── Static strings ────────────────────────────────────────────
+const PDF_STRINGS = {
+  printedOn:  { ar: "تاريخ الطباعة",                                      en: "Printed On"                   },
+  companySub: { ar: "نظام إدارة المشاريع الإنشائية",                      en: "Construction Project Management" },
+  footerLeft: { ar: "جميع الحقوق محفوظة",                                  en: "All rights reserved"           },
+  footerRight:{ ar: "هذا التقرير سري ومخصص للاستخدام الداخلي فقط",        en: "This report is confidential and for internal use only" },
+} as const;
+
+function t(lang: "ar" | "en", key: keyof typeof PDF_STRINGS): string {
+  return PDF_STRINGS[key][lang];
+}
+
+// ── Internal helpers ──────────────────────────────────────────
 
 const KPI_COLORS: Record<KpiColor, { border: string; value: string }> = {
   orange: { border: "#F97316", value: "#F97316" },
@@ -101,22 +118,28 @@ function buildKpiCards(cards: KpiCard[]): string {
 }
 
 function buildMetaBar(items: MetaItem[]): string {
-  const count = items.length;
   const cols = items
     .map(
       (m) =>
         `<div class="meta-item"><label>${m.label}</label><span>${m.value}</span></div>`
     )
     .join("");
-  return `<div class="meta-bar" style="grid-template-columns:repeat(${count},1fr)">${cols}</div>`;
+  return `<div class="meta-bar" style="grid-template-columns:repeat(${items.length},1fr)">${cols}</div>`;
 }
 
-// ── Shared CSS available to ALL reports ───────────────────────────────────
-const BASE_CSS = `
-@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&display=swap');
+// ── Shared CSS ────────────────────────────────────────────────
+function buildCss(dir: "rtl" | "ltr"): string {
+  // stmt-row padding flips based on direction so indentation stays on the
+  // "start" side regardless of RTL/LTR
+  const stmtRowPadding = dir === "rtl" ? "padding:7px 0 7px 24px" : "padding:7px 24px 7px 0";
+  const stmtSubPadding = dir === "rtl" ? "padding:9px 0 9px 24px" : "padding:9px 24px 9px 0";
+
+  return `
+@import url('https://fonts.googleapis.com/css2?family=Tajawal:wght@300;400;500;700;800&family=Inter:wght@300;400;500;700;800&display=swap');
 *,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
-body{font-family:'Tajawal','Segoe UI',Tahoma,Arial,sans-serif;background:#fff;
-     color:#1a1a2e;direction:rtl;-webkit-print-color-adjust:exact;print-color-adjust:exact}
+body{font-family:${dir === "rtl" ? "'Tajawal'" : "'Inter'"}, 'Segoe UI',Tahoma,Arial,sans-serif;
+     background:#fff;color:#1a1a2e;direction:${dir};
+     -webkit-print-color-adjust:exact;print-color-adjust:exact}
 .page{width:210mm;min-height:297mm;margin:0 auto;padding:0;background:#fff;position:relative}
 
 /* ── Header ─────────────────────────────────────────────────── */
@@ -129,7 +152,7 @@ body{font-family:'Tajawal','Segoe UI',Tahoma,Arial,sans-serif;background:#fff;
              color:#fff;font-weight:800;font-size:11px;letter-spacing:1px;flex-shrink:0}
 .company-name{color:#fff;font-size:20px;font-weight:800}
 .company-sub{color:#9ca3af;font-size:11px;margin-top:2px}
-.report-badge{text-align:left}
+.report-badge{text-align:${dir === "rtl" ? "left" : "right"}}
 .report-title{color:#F97316;font-size:15px;font-weight:700;letter-spacing:.5px}
 .report-subtitle{color:#9ca3af;font-size:10px;margin-top:3px}
 
@@ -177,11 +200,11 @@ tr:not(thead tr){border-bottom:1px solid #e2e8f0}
                     display:flex;align-items:center;gap:8px}
 .dot{width:10px;height:10px;border-radius:50%;flex-shrink:0;display:inline-block}
 .stmt-row{display:flex;justify-content:space-between;align-items:center;
-          padding:7px 0 7px 24px;border-bottom:1px solid #f1f5f9;font-size:12px}
+          ${stmtRowPadding};border-bottom:1px solid #f1f5f9;font-size:12px}
 .stmt-row .lbl{color:#475569}
 .stmt-row .amt{font-weight:600;color:#1e293b}
 .stmt-subtotal{display:flex;justify-content:space-between;align-items:center;
-               padding:9px 0 9px 24px;border-top:1px solid #cbd5e1;margin-top:2px}
+               ${stmtSubPadding};border-top:1px solid #cbd5e1;margin-top:2px}
 .stmt-subtotal .lbl{font-weight:700;color:#1e293b;font-size:12px}
 .stmt-subtotal .amt{font-weight:700;font-size:13px}
 .stmt-highlight{display:flex;justify-content:space-between;align-items:center;
@@ -215,26 +238,31 @@ tr:not(thead tr){border-bottom:1px solid #e2e8f0}
   @page{size:A4 portrait;margin:0}
 }
 `;
+}
 
-// ── Public API ────────────────────────────────────────────────────────────
+// ── Public API ────────────────────────────────────────────────
 
 export function exportPdf(options: ExportPdfOptions): void {
   const { title, subtitle, metaItems, kpiCards = [], sections } = options;
 
-  const printedOn = new Date().toLocaleDateString("ar-SA", {
-    year: "numeric",
-    month: "long",
-    day: "numeric",
-  });
+  // Normalise lang — default to "ar" for backwards compatibility
+  const lang: "ar" | "en" =
+    typeof options.lang === "string" && options.lang.startsWith("en") ? "en" : "ar";
+  const dir = lang === "ar" ? "rtl" : "ltr";
 
-  const allMeta = [...metaItems, { label: "تاريخ الطباعة", value: printedOn }];
+  const printedOn = new Date().toLocaleDateString(
+    lang === "ar" ? "ar-SA" : "en-US",
+    { year: "numeric", month: "long", day: "numeric" },
+  );
+
+  const allMeta = [...metaItems, { label: t(lang, "printedOn"), value: printedOn }];
 
   const html = `<!DOCTYPE html>
-<html lang="ar" dir="rtl">
+<html lang="${lang}" dir="${dir}">
 <head>
   <meta charset="UTF-8"/>
   <title>${title}</title>
-  <style>${BASE_CSS}</style>
+  <style>${buildCss(dir)}</style>
 </head>
 <body>
 <div class="page">
@@ -247,7 +275,7 @@ export function exportPdf(options: ExportPdfOptions): void {
       </div>
       <div>
         <div class="company-name">Hennu Tech</div>
-        <div class="company-sub">نظام إدارة المشاريع الإنشائية</div>
+        <div class="company-sub">${t(lang, "companySub")}</div>
       </div>
     </div>
     <div class="report-badge">
@@ -264,8 +292,8 @@ export function exportPdf(options: ExportPdfOptions): void {
   </div>
 
   <div class="footer">
-    <span>&copy; ${new Date().getFullYear()} <strong>Hennu Tech</strong> &mdash; جميع الحقوق محفوظة</span>
-    <span>هذا التقرير سري ومخصص للاستخدام الداخلي فقط</span>
+    <span>&copy; ${new Date().getFullYear()} <strong>Hennu Tech</strong> &mdash; ${t(lang, "footerLeft")}</span>
+    <span>${t(lang, "footerRight")}</span>
   </div>
 
 </div>
@@ -277,7 +305,9 @@ export function exportPdf(options: ExportPdfOptions): void {
 
   const win = window.open("", "_blank", "width=920,height=720");
   if (!win) {
-    alert("يرجى السماح بالنوافذ المنبثقة لتصدير التقرير");
+    alert(lang === "ar"
+      ? "يرجى السماح بالنوافذ المنبثقة لتصدير التقرير"
+      : "Please allow pop-ups to export the report");
     return;
   }
   win.document.write(html);

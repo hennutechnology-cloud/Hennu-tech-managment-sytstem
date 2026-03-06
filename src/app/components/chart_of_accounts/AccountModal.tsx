@@ -1,16 +1,23 @@
-import { useEffect, useState } from "react";
+// ============================================================
+// AccountModal.tsx
+// account.name in the parent selector comes from the API — rendered directly.
+// All labels, placeholders, and validation messages go through tCOA().
+// ============================================================
+import { useEffect, useState }     from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Save, AlertCircle } from "lucide-react";
+import { X, Save, AlertCircle }    from "lucide-react";
+import { tCOA, tCOAInterp }        from "../../core/i18n/chartOfAccounts.i18n";
 import type {
   AccountModalProps,
   AccountFormValues,
   AccountFormErrors,
   AccountType,
 } from "../../core/models/ChartOfAccounts.types";
+import type { Lang } from "../../core/models/Settings.types";
 
 function flattenAccounts(
   accounts: AccountModalProps["accounts"] | undefined,
-  depth = 0
+  depth = 0,
 ): { code: string; name: string; depth: number }[] {
   if (!accounts || !Array.isArray(accounts)) return [];
   const result: { code: string; name: string; depth: number }[] = [];
@@ -21,20 +28,20 @@ function flattenAccounts(
   return result;
 }
 
-function validate(values: AccountFormValues): AccountFormErrors {
+function validate(values: AccountFormValues, lang: Lang): AccountFormErrors {
   const errors: AccountFormErrors = {};
   if (!values.code.trim())
-    errors.code = "رمز الحساب مطلوب";
+    errors.code = tCOA(lang, "errCodeRequired");
   else if (!/^\d{4,}$/.test(values.code.trim()))
-    errors.code = "يجب أن يحتوي الرمز على 4 أرقام على الأقل";
+    errors.code = tCOA(lang, "errCodeFormat");
   if (!values.name.trim())
-    errors.name = "اسم الحساب مطلوب";
+    errors.name = tCOA(lang, "errNameRequired");
   else if (values.name.trim().length < 2)
-    errors.name = "الاسم قصير جداً";
+    errors.name = tCOA(lang, "errNameShort");
   if (!values.balance.trim())
-    errors.balance = "الرصيد مطلوب";
+    errors.balance = tCOA(lang, "errBalanceRequired");
   else if (isNaN(parseFloat(values.balance)) || parseFloat(values.balance) < 0)
-    errors.balance = "يجب إدخال رقم صحيح موجب";
+    errors.balance = tCOA(lang, "errBalanceInvalid");
   return errors;
 }
 
@@ -42,11 +49,7 @@ function Field({
   label,
   error,
   children,
-}: {
-  label: string;
-  error?: string;
-  children: React.ReactNode;
-}) {
+}: { label: string; error?: string; children: React.ReactNode }) {
   return (
     <div className="space-y-1.5">
       <label className="block text-sm font-medium text-gray-300">{label}</label>
@@ -75,54 +78,36 @@ const inputCls = (hasError: boolean) =>
    focus:outline-none focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/30
    transition-all duration-200`;
 
-const EMPTY: AccountFormValues = {
-  code: "",
-  name: "",
-  type: "main",
-  balance: "",
-  parentCode: "",
-};
+const EMPTY: AccountFormValues = { code: "", name: "", type: "main", balance: "", parentCode: "" };
 
 export default function AccountModal({
-  isOpen,
-  editAccount,
-  accounts = [],
-  onClose,
-  onSave,
+  isOpen, editAccount, accounts = [], onClose, onSave, lang,
 }: AccountModalProps) {
   const [values, setValues] = useState<AccountFormValues>(EMPTY);
   const [errors, setErrors] = useState<AccountFormErrors>({});
   const [saving, setSaving] = useState(false);
 
   const isEdit = !!editAccount;
-  const flat = flattenAccounts(accounts);
+  const flat   = flattenAccounts(accounts);
 
   useEffect(() => {
     if (isOpen) {
-      if (editAccount) {
-        setValues({
-          code: editAccount.code,
-          name: editAccount.name,
-          type: editAccount.type,
-          balance: String(editAccount.balance),
-          parentCode: "",
-        });
-      } else {
-        setValues(EMPTY);
-      }
+      setValues(editAccount
+        ? { code: editAccount.code, name: editAccount.name, type: editAccount.type, balance: String(editAccount.balance), parentCode: "" }
+        : EMPTY
+      );
       setErrors({});
     }
   }, [isOpen, editAccount]);
 
   const set = (field: keyof AccountFormValues, value: string) => {
     setValues((prev) => ({ ...prev, [field]: value }));
-    if (errors[field as keyof AccountFormErrors]) {
+    if (errors[field as keyof AccountFormErrors])
       setErrors((prev) => ({ ...prev, [field]: undefined }));
-    }
   };
 
   const handleSubmit = async () => {
-    const errs = validate(values);
+    const errs = validate(values, lang);
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
     try { await onSave(values); onClose(); }
@@ -133,16 +118,10 @@ export default function AccountModal({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div
-            key="backdrop"
-            initial={{ opacity: 0 }}
-            animate={{ opacity: 1 }}
-            exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40"
-          />
-          <motion.div
-            key="modal"
+          <motion.div key="backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
+
+          <motion.div key="modal"
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
             animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
@@ -151,13 +130,17 @@ export default function AccountModal({
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-full max-w-lg bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
+
+              {/* Header */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-gradient-to-l from-orange-500/10 to-transparent">
                 <div>
                   <h2 className="text-lg font-bold text-white">
-                    {isEdit ? "تعديل الحساب" : "إضافة حساب جديد"}
+                    {isEdit ? tCOA(lang, "modalEditTitle") : tCOA(lang, "modalAddTitle")}
                   </h2>
                   <p className="text-xs text-gray-400 mt-0.5">
-                    {isEdit ? `تعديل بيانات الحساب ${editAccount!.code}` : "أدخل بيانات الحساب الجديد"}
+                    {isEdit
+                      ? tCOAInterp(lang, "modalEditSubtitle", { code: editAccount!.code })
+                      : tCOA(lang, "modalAddSubtitle")}
                   </p>
                 </div>
                 <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white">
@@ -165,48 +148,45 @@ export default function AccountModal({
                 </button>
               </div>
 
+              {/* Form */}
               <div className="px-6 py-6 space-y-5">
                 <div className="grid grid-cols-2 gap-4">
-                  <Field label="رمز الحساب" error={errors.code}>
+                  <Field label={tCOA(lang, "fieldCode")} error={errors.code}>
                     <input
-                      type="text"
-                      dir="ltr"
-                      placeholder="مثال: 1101"
+                      type="text" dir="ltr"
+                      placeholder={tCOA(lang, "fieldCodePlaceholder")}
                       value={values.code}
                       onChange={(e) => set("code", e.target.value)}
                       disabled={isEdit}
                       className={inputCls(!!errors.code) + (isEdit ? " opacity-50 cursor-not-allowed" : "")}
                     />
                   </Field>
-                  <Field label="نوع الحساب">
+                  <Field label={tCOA(lang, "fieldType")}>
                     <select
                       value={values.type}
                       onChange={(e) => set("type", e.target.value as AccountType)}
                       className={inputCls(false) + " cursor-pointer"}
                     >
-                      <option value="main"   className="bg-[#0f1117]">رئيسي</option>
-                      <option value="sub"    className="bg-[#0f1117]">فرعي</option>
-                      <option value="detail" className="bg-[#0f1117]">تفصيلي</option>
+                      <option value="main"   className="bg-[#0f1117]">{tCOA(lang, "typeMain")}</option>
+                      <option value="sub"    className="bg-[#0f1117]">{tCOA(lang, "typeSub")}</option>
+                      <option value="detail" className="bg-[#0f1117]">{tCOA(lang, "typeDetail")}</option>
                     </select>
                   </Field>
                 </div>
 
-                <Field label="اسم الحساب" error={errors.name}>
+                <Field label={tCOA(lang, "fieldName")} error={errors.name}>
                   <input
                     type="text"
-                    placeholder="مثال: الصندوق"
+                    placeholder={tCOA(lang, "fieldNamePlaceholder")}
                     value={values.name}
                     onChange={(e) => set("name", e.target.value)}
                     className={inputCls(!!errors.name)}
                   />
                 </Field>
 
-                <Field label="الرصيد الافتتاحي (ر.س)" error={errors.balance}>
+                <Field label={tCOA(lang, "fieldBalance")} error={errors.balance}>
                   <input
-                    type="number"
-                    dir="ltr"
-                    placeholder="0"
-                    min="0"
+                    type="number" dir="ltr" placeholder="0" min="0"
                     value={values.balance}
                     onChange={(e) => set("balance", e.target.value)}
                     className={inputCls(!!errors.balance)}
@@ -214,13 +194,13 @@ export default function AccountModal({
                 </Field>
 
                 {!isEdit && values.type !== "main" && (
-                  <Field label="الحساب الأب (اختياري)">
+                  <Field label={tCOA(lang, "fieldParent")}>
                     <select
                       value={values.parentCode}
                       onChange={(e) => set("parentCode", e.target.value)}
                       className={inputCls(false) + " cursor-pointer"}
                     >
-                      <option value="" className="bg-[#0f1117]">— بدون حساب أب (مستوى رئيسي) —</option>
+                      <option value="" className="bg-[#0f1117]">{tCOA(lang, "fieldParentNone")}</option>
                       {flat.map((a) => (
                         <option key={a.code} value={a.code} className="bg-[#0f1117]">
                           {"　".repeat(a.depth)}{a.code} — {a.name}
@@ -231,9 +211,10 @@ export default function AccountModal({
                 )}
               </div>
 
+              {/* Footer */}
               <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
                 <button onClick={onClose} className="px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
-                  إلغاء
+                  {tCOA(lang, "cancel")}
                 </button>
                 <button
                   onClick={handleSubmit}
@@ -243,7 +224,7 @@ export default function AccountModal({
                   {saving
                     ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                     : <Save className="w-4 h-4" />}
-                  {isEdit ? "حفظ التعديلات" : "إضافة الحساب"}
+                  {isEdit ? tCOA(lang, "save") : tCOA(lang, "addBtn")}
                 </button>
               </div>
             </div>

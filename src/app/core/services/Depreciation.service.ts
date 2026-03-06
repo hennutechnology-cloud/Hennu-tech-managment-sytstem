@@ -1,7 +1,5 @@
 // ============================================================
 // Depreciation.service.ts
-// Fetch layer + context definition + hook + state hook.
-// Provider JSX lives in DepreciationProvider.tsx
 // ============================================================
 import { createContext, useContext, useState, useEffect } from "react";
 import type {
@@ -18,8 +16,8 @@ function calcAnnualDepreciation(
   usefulLife: number,
   method: DepreciationAsset["method"],
 ): number {
-  if (method === "قسط ثابت") return Math.round((cost - salvageValue) / usefulLife);
-  return Math.round((cost * 0.2)); // simplified declining balance
+  if (method === "straight-line") return Math.round((cost - salvageValue) / usefulLife);
+  return Math.round(cost * 0.2); // simplified declining balance
 }
 
 // ── Fetch layer ───────────────────────────────────────────────
@@ -33,44 +31,29 @@ export async function fetchDepreciationData(): Promise<DepreciationData> {
   return {
     assets: [
       {
-        id: 1,
-        name: "مبنى المكتب الرئيسي",
-        cost: 18_000_000,
-        salvageValue: 2_000_000,
-        usefulLife: 20,
-        method: "قسط ثابت",
-        annualDepreciation: 800_000,
-        accumulated: 3_200_000,
-        bookValue: 14_800_000,
+        id: 1, name: "مبنى المكتب الرئيسي",
+        cost: 18_000_000, salvageValue: 2_000_000, usefulLife: 20,
+        method: "straight-line",
+        annualDepreciation: 800_000, accumulated: 3_200_000, bookValue: 14_800_000,
         purchaseDate: "2022-01-15",
       },
       {
-        id: 2,
-        name: "معدات البناء",
-        cost: 5_500_000,
-        salvageValue: 500_000,
-        usefulLife: 10,
-        method: "قسط ثابت",
-        annualDepreciation: 500_000,
-        accumulated: 2_000_000,
-        bookValue: 3_500_000,
+        id: 2, name: "معدات البناء",
+        cost: 5_500_000, salvageValue: 500_000, usefulLife: 10,
+        method: "straight-line",
+        annualDepreciation: 500_000, accumulated: 2_000_000, bookValue: 3_500_000,
         purchaseDate: "2022-06-20",
       },
       {
-        id: 3,
-        name: "أسطول النقل",
-        cost: 1_500_000,
-        salvageValue: 150_000,
-        usefulLife: 5,
-        method: "قسط متناقص",
-        annualDepreciation: 270_000,
-        accumulated: 810_000,
-        bookValue: 690_000,
+        id: 3, name: "أسطول النقل",
+        cost: 1_500_000, salvageValue: 150_000, usefulLife: 5,
+        method: "declining-balance",
+        annualDepreciation: 270_000, accumulated: 810_000, bookValue: 690_000,
         purchaseDate: "2023-03-10",
       },
     ],
     trend: [
-      { year: "2022", depreciation: 650_000 },
+      { year: "2022", depreciation:   650_000 },
       { year: "2023", depreciation: 1_300_000 },
       { year: "2024", depreciation: 1_570_000 },
       { year: "2025", depreciation: 1_570_000 },
@@ -86,75 +69,46 @@ export async function fetchDepreciationData(): Promise<DepreciationData> {
 }
 
 export async function createAsset(values: DepreciationFormValues): Promise<DepreciationAsset> {
-  // TODO: replace with real API call
-  // const res = await fetch("/api/depreciation", { method: "POST", body: JSON.stringify(values) });
-  // return res.json();
-
   const cost         = parseFloat(values.cost);
   const salvageValue = parseFloat(values.salvageValue);
   const usefulLife   = parseInt(values.usefulLife);
   const annual       = calcAnnualDepreciation(cost, salvageValue, usefulLife, values.method);
-
   return {
-    id:                 Date.now(),
-    name:               values.name,
-    cost,
-    salvageValue,
-    usefulLife,
-    method:             values.method,
-    annualDepreciation: annual,
-    accumulated:        0,
-    bookValue:          cost,
-    purchaseDate:       values.purchaseDate,
+    id: Date.now(), name: values.name, cost, salvageValue, usefulLife,
+    method: values.method, annualDepreciation: annual,
+    accumulated: 0, bookValue: cost, purchaseDate: values.purchaseDate,
   };
 }
 
-export async function updateAsset(
-  id: number,
-  values: DepreciationFormValues,
-): Promise<DepreciationAsset> {
-  // TODO: replace with real API call
-  // const res = await fetch(`/api/depreciation/${id}`, { method: "PUT", body: JSON.stringify(values) });
-  // return res.json();
-
+export async function updateAsset(id: number, values: DepreciationFormValues): Promise<DepreciationAsset> {
   const cost         = parseFloat(values.cost);
   const salvageValue = parseFloat(values.salvageValue);
   const usefulLife   = parseInt(values.usefulLife);
   const annual       = calcAnnualDepreciation(cost, salvageValue, usefulLife, values.method);
-
   return {
-    id,
-    name:               values.name,
-    cost,
-    salvageValue,
-    usefulLife,
-    method:             values.method,
-    annualDepreciation: annual,
-    accumulated:        0,
-    bookValue:          cost,
-    purchaseDate:       values.purchaseDate,
+    id, name: values.name, cost, salvageValue, usefulLife,
+    method: values.method, annualDepreciation: annual,
+    accumulated: 0, bookValue: cost, purchaseDate: values.purchaseDate,
   };
 }
 
 export async function deleteAsset(id: number): Promise<void> {
-  // TODO: replace with real API call
-  // await fetch(`/api/depreciation/${id}`, { method: "DELETE" });
   console.log("Deleted asset", id);
 }
 
 // ── Context ───────────────────────────────────────────────────
 
 export interface DepreciationContextValue {
-  data:        DepreciationData | null;
-  loading:     boolean;
-  error:       string | null;
-  modalOpen:   boolean;
-  editAsset:   DepreciationAsset | null;
-  openCreate:  () => void;
-  openEdit:    (asset: DepreciationAsset) => void;
-  closeModal:  () => void;
-  handleSave:  (values: DepreciationFormValues) => Promise<void>;
-  handleDelete:(id: number) => Promise<void>;
+  data:         DepreciationData | null;
+  loading:      boolean;
+  error:        boolean;   // boolean — component calls tDep(lang, "loadError")
+  modalOpen:    boolean;
+  editAsset:    DepreciationAsset | null;
+  openCreate:   () => void;
+  openEdit:     (asset: DepreciationAsset) => void;
+  closeModal:   () => void;
+  handleSave:   (values: DepreciationFormValues) => Promise<void>;
+  handleDelete: (id: number) => Promise<void>;
 }
 
 export const DepreciationContext = createContext<DepreciationContextValue | null>(null);
@@ -168,17 +122,17 @@ export function useDepreciation(): DepreciationContextValue {
 export function useDepreciationState(): DepreciationContextValue {
   const [data,      setData]      = useState<DepreciationData | null>(null);
   const [loading,   setLoading]   = useState(false);
-  const [error,     setError]     = useState<string | null>(null);
+  const [error,     setError]     = useState(false);
   const [modalOpen, setModalOpen] = useState(false);
   const [editAsset, setEditAsset] = useState<DepreciationAsset | null>(null);
 
   useEffect(() => {
     let cancelled = false;
     setLoading(true);
-    setError(null);
+    setError(false);
     fetchDepreciationData()
       .then((res) => { if (!cancelled) setData(res); })
-      .catch(() => { if (!cancelled) setError("تعذّر تحميل البيانات"); })
+      .catch(() => { if (!cancelled) setError(true); })
       .finally(() => { if (!cancelled) setLoading(false); });
     return () => { cancelled = true; };
   }, []);
@@ -191,10 +145,7 @@ export function useDepreciationState(): DepreciationContextValue {
     if (!data) return;
     if (editAsset) {
       const updated = await updateAsset(editAsset.id, values);
-      setData({
-        ...data,
-        assets: data.assets.map((a) => (a.id === updated.id ? updated : a)),
-      });
+      setData({ ...data, assets: data.assets.map((a) => (a.id === updated.id ? updated : a)) });
     } else {
       const created = await createAsset(values);
       setData({ ...data, assets: [...data.assets, created] });

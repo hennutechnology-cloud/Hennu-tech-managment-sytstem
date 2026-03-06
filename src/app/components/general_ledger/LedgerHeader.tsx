@@ -1,15 +1,16 @@
 // ============================================================
 // LedgerHeader.tsx
 // ============================================================
-import { Download } from "lucide-react";
+import { Download }  from "lucide-react";
+import { tGL }       from "../../core/i18n/generalLedger.i18n";
 import type { LedgerHeaderProps } from "../../core/models/GeneralLedger.types";
 
-export default function LedgerHeader({ onExportPdf, exporting }: LedgerHeaderProps) {
+export default function LedgerHeader({ onExportPdf, exporting, lang }: LedgerHeaderProps) {
   return (
     <div className="flex items-center justify-between">
       <div>
-        <h1 className="text-3xl font-bold text-white mb-2">الأستاذ العام</h1>
-        <p className="text-gray-400">سجل تفصيلي لحركات الحسابات</p>
+        <h1 className="text-3xl font-bold text-white mb-2">{tGL(lang, "pageTitle")}</h1>
+        <p className="text-gray-400">{tGL(lang, "pageSubtitle")}</p>
       </div>
       <button
         onClick={onExportPdf}
@@ -21,7 +22,7 @@ export default function LedgerHeader({ onExportPdf, exporting }: LedgerHeaderPro
         {exporting
           ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
           : <Download className="w-5 h-5" />}
-        {exporting ? "جارٍ التصدير…" : "تصدير PDF"}
+        {exporting ? tGL(lang, "exporting") : tGL(lang, "exportPdf")}
       </button>
     </div>
   );

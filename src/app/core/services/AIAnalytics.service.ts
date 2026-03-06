@@ -3,94 +3,102 @@
 // ============================================================
 import type { AIAnalyticsData } from "../models/AIAnalytics.types";
 
-// ---------------------------------------------------------------------------
-// Static seed
-// ---------------------------------------------------------------------------
 const STATIC: AIAnalyticsData = {
   health: {
-    score:       78,
-    label:       "جيد",
-    successRate: 82,
-    riskLevel:   "متوسط",
-    lastUpdated: "منذ ساعة",
+    score:          78,
+    labelKey:       "good",     // enum → i18n resolves to "جيد" / "Good"
+    successRate:    82,
+    riskLevelKey:   "medium",   // enum → i18n resolves to "متوسط" / "Medium"
+    lastUpdatedIso: "2024-02-01T11:00:00Z",
   },
+
   riskAssessment: [
-    { category: "التكلفة",  score: 85 },
-    { category: "الجودة",   score: 90 },
-    { category: "الوقت",    score: 65 },
-    { category: "السيولة",  score: 75 },
-    { category: "الامتثال", score: 95 },
-    { category: "الموارد",  score: 80 },
+    { categoryKey: "cost",       score: 85 },
+    { categoryKey: "quality",    score: 90 },
+    { categoryKey: "time",       score: 65 },
+    { categoryKey: "liquidity",  score: 75 },
+    { categoryKey: "compliance", score: 95 },
+    { categoryKey: "resources",  score: 80 },
   ],
+
   costPrediction: [
-    { month: "فبراير", actual: 9250000, predicted: 9250000 },
-    { month: "مارس",   predicted: 9800000  },
-    { month: "أبريل",  predicted: 10200000 },
-    { month: "مايو",   predicted: 10500000 },
-    { month: "يونيو",  predicted: 10100000 },
-    { month: "يوليو",  predicted: 9900000  },
+    { month: 2, actual: 9250000, predicted: 9250000 },
+    { month: 3,                  predicted: 9800000  },
+    { month: 4,                  predicted: 10200000 },
+    { month: 5,                  predicted: 10500000 },
+    { month: 6,                  predicted: 10100000 },
+    { month: 7,                  predicted: 9900000  },
   ],
+
   cashFlowForecast: [
-    { month: "فبراير", inflow: 1800000, outflow: 1150000 },
-    { month: "مارس",   inflow: 1950000, outflow: 1280000 },
-    { month: "أبريل",  inflow: 2100000, outflow: 1350000 },
-    { month: "مايو",   inflow: 2250000, outflow: 1420000 },
-    { month: "يونيو",  inflow: 2400000, outflow: 1500000 },
+    { month: 2, inflow: 1800000, outflow: 1150000 },
+    { month: 3, inflow: 1950000, outflow: 1280000 },
+    { month: 4, inflow: 2100000, outflow: 1350000 },
+    { month: 5, inflow: 2250000, outflow: 1420000 },
+    { month: 6, inflow: 2400000, outflow: 1500000 },
   ],
+
+  // title, description → plain strings the API returns in the user's language
   insights: [
     {
       title:       "توقع تجاوز التكلفة",
       description: "بناءً على تحليل 247 نقطة بيانات، يتوقع النموذج احتمالية 35% لتجاوز الميزانية في Q2 بمقدار 2.5M ر.س",
       risk:        "high",
       iconKey:     "trending",
-      confidence:  "92%",
+      confidence:  92,
     },
     {
       title:       "فجوة التدفق النقدي",
       description: "تحليل التدفقات النقدية يشير إلى احتمالية نقص سيولة خلال 45-60 يوماً. يُنصح بإعادة جدولة المدفوعات",
       risk:        "medium",
       iconKey:     "alert",
-      confidence:  "87%",
+      confidence:  87,
     },
     {
       title:       "فرصة توفير في المشتريات",
       description: "اكتشف النظام فرصة لتوفير 8% من تكاليف المواد عبر الشراء الجماعي من 3 موردين محددين",
       risk:        "low",
       iconKey:     "cart",
-      confidence:  "95%",
+      confidence:  95,
     },
     {
       title:       "تنبيه احتيال محتمل",
       description: "تم رصد 12 معاملة غير نمطية في حساب المصروفات الإدارية. تتطلب مراجعة فورية",
       risk:        "high",
       iconKey:     "shield",
-      confidence:  "78%",
+      confidence:  78,
     },
   ],
+
+  // title, action, impact → plain strings from API
+  // priority → enum, i18n resolves to "عالية" / "High" etc.
   recommendations: [
     {
       title:    "زيادة السيولة",
       action:   "تسريع تحصيل المستحقات من العملاء الرئيسيين",
       impact:   "+3.2M ر.س",
-      priority: "عالية",
+      priority: "high",
     },
     {
       title:    "تحسين الربحية",
       action:   "إعادة التفاوض على عقود الموردين الرئيسيين",
       impact:   "+8% هامش",
-      priority: "متوسطة",
+      priority: "medium",
     },
     {
       title:    "إدارة المخاطر",
       action:   "التحوط ضد تقلبات أسعار الحديد والإسمنت",
       impact:   "-15% مخاطر",
-      priority: "عالية",
+      priority: "high",
     },
   ],
 };
 
 function delay(ms: number) { return new Promise<void>((r) => setTimeout(r, ms)); }
 
+// Replace the body of this function with your real API call:
+//   const res = await fetch("/api/ai-analytics");
+//   return res.json() as Promise<AIAnalyticsData>;
 export async function fetchAIAnalytics(): Promise<AIAnalyticsData> {
   await delay(300);
   return JSON.parse(JSON.stringify(STATIC)) as AIAnalyticsData;

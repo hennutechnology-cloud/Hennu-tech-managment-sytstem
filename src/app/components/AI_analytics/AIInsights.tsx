@@ -1,12 +1,15 @@
 // ============================================================
 // AIInsights.tsx
+// title and description come as plain strings from the API —
+// render them directly, no resolver needed.
 // ============================================================
 import { Brain, TrendingUp, AlertTriangle, ShoppingCart, ShieldAlert } from "lucide-react";
-import { motion } from "motion/react";
-import GlassCard from "../../core/shared/components/GlassCard";
+import { motion }    from "motion/react";
+import GlassCard     from "../../core/shared/components/GlassCard";
+import { tAI }       from "../../core/i18n/aiAnalytics.i18n";
 import type { AIInsightsProps, AIInsight } from "../../core/models/AIAnalytics.types";
+import type { Lang } from "../../core/models/Settings.types";
 
-// ── Icon map (keeps JSX components out of the service layer) ──
 const ICON_MAP = {
   trending: TrendingUp,
   alert:    AlertTriangle,
@@ -14,14 +17,13 @@ const ICON_MAP = {
   shield:   ShieldAlert,
 } as const;
 
-// ── Style maps (mirror the original inline riskColors object) ──
 const RISK_GRADIENT: Record<string, string> = {
   high:   "from-red-500/20 to-red-600/10 border-red-500/30",
   medium: "from-orange-500/20 to-orange-600/10 border-orange-500/30",
   low:    "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30",
 };
 
-function InsightCard({ insight, index }: { insight: AIInsight; index: number }) {
+function InsightCard({ insight, index, lang }: { insight: AIInsight; index: number; lang: Lang }) {
   const Icon = ICON_MAP[insight.iconKey];
   return (
     <motion.div
@@ -39,7 +41,7 @@ function InsightCard({ insight, index }: { insight: AIInsight; index: number }) 
             <div className="flex items-start justify-between mb-2">
               <h4 className="font-bold text-white">{insight.title}</h4>
               <span className="px-2 py-1 bg-white/10 rounded text-xs text-gray-300 flex-shrink-0 mr-2">
-                ثقة {insight.confidence}
+                {tAI(lang, "confidenceLabel")} {insight.confidence}%
               </span>
             </div>
             <p className="text-sm text-gray-300 leading-relaxed">{insight.description}</p>
@@ -50,16 +52,16 @@ function InsightCard({ insight, index }: { insight: AIInsight; index: number }) 
   );
 }
 
-export default function AIInsights({ insights }: AIInsightsProps) {
+export default function AIInsights({ insights, lang }: AIInsightsProps) {
   return (
     <div>
       <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
         <Brain className="w-6 h-6 text-[#F97316]" />
-        رؤى الذكاء الاصطناعي
+        {tAI(lang, "insightsTitle")}
       </h2>
       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
         {insights.map((insight, i) => (
-          <InsightCard key={i} insight={insight} index={i} />
+          <InsightCard key={i} insight={insight} index={i} lang={lang} />
         ))}
       </div>
     </div>

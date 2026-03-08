@@ -1,5 +1,5 @@
 // ============================================================
-// EntryForm.tsx  — New journal entry form
+// EntryForm.tsx — Responsive
 // ============================================================
 import { useState } from "react";
 import { Plus, Trash2, CheckCircle2, AlertCircle } from "lucide-react";
@@ -21,7 +21,10 @@ function emptyLine(id: number): EntryLineForm {
   return { id, accountCode: "", description: "", debit: "", credit: "" };
 }
 
-function validate(values: JournalEntryFormValues, lang: import("../../core/models/Settings.types").Lang): JournalEntryFormErrors {
+function validate(
+  values: JournalEntryFormValues,
+  lang: import("../../core/models/Settings.types").Lang,
+): JournalEntryFormErrors {
   const errors: JournalEntryFormErrors = {};
   if (!values.date)               errors.date        = tJE(lang, "errDateRequired");
   if (!values.description.trim()) errors.description = tJE(lang, "errDescRequired");
@@ -45,6 +48,9 @@ function validate(values: JournalEntryFormValues, lang: import("../../core/model
   return errors;
 }
 
+const inputCls = (err?: string) =>
+  `w-full bg-white/5 border ${err ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#F97316] transition-colors`;
+
 export default function EntryForm({ lang, onSave }: EntryFormProps) {
   const [values, setValues] = useState<JournalEntryFormValues>({
     date: today,
@@ -64,16 +70,10 @@ export default function EntryForm({ lang, onSave }: EntryFormProps) {
     if (touched) setErrors((e) => ({ ...e, [field]: undefined }));
   };
 
-  const setLine = (id: number, field: keyof EntryLineForm, value: string) => {
-    setValues((v) => ({
-      ...v,
-      lines: v.lines.map((l) => (l.id === id ? { ...l, [field]: value } : l)),
-    }));
-  };
+  const setLine = (id: number, field: keyof EntryLineForm, value: string) =>
+    setValues((v) => ({ ...v, lines: v.lines.map((l) => (l.id === id ? { ...l, [field]: value } : l)) }));
 
-  const addLine = () => {
-    setValues((v) => ({ ...v, lines: [...v.lines, emptyLine(Date.now())] }));
-  };
+  const addLine = () => setValues((v) => ({ ...v, lines: [...v.lines, emptyLine(Date.now())] }));
 
   const removeLine = (id: number) => {
     if (values.lines.length > 2)
@@ -97,7 +97,7 @@ export default function EntryForm({ lang, onSave }: EntryFormProps) {
 
   return (
     <GlassCard>
-      <h2 className="text-xl font-bold text-white mb-6">{tJE(lang, "formTitle")}</h2>
+      <h2 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">{tJE(lang, "formTitle")}</h2>
 
       <div className="space-y-4 mb-6">
         {/* Date + Description */}
@@ -121,8 +121,73 @@ export default function EntryForm({ lang, onSave }: EntryFormProps) {
           </div>
         </div>
 
-        {/* Lines table */}
-        <div className="overflow-x-auto">
+        {/* ── MOBILE LINE CARDS (< md) ── */}
+        <div className="md:hidden flex flex-col gap-3">
+          {values.lines.map((line, idx) => {
+            const lineErr = errors.lines?.[idx];
+            return (
+              <motion.div
+                key={line.id}
+                initial={{ opacity: 0, y: -8 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="rounded-xl bg-white/[0.04] border border-white/8 p-3 space-y-3"
+              >
+                <div className="flex items-center justify-between">
+                  <span className="text-xs text-gray-500 font-medium">{tJE(lang, "colAccount")} #{idx + 1}</span>
+                  {values.lines.length > 2 && (
+                    <button onClick={() => removeLine(line.id)} className="p-1.5 hover:bg-red-500/20 rounded-lg transition-colors">
+                      <Trash2 className="w-3.5 h-3.5 text-red-400" />
+                    </button>
+                  )}
+                </div>
+                <div>
+                  <select value={line.accountCode} onChange={(e) => setLine(line.id, "accountCode", e.target.value)} className={inputCls(lineErr?.accountCode)}>
+                    <option value="">{tJE(lang, "selectAccount")}</option>
+                    {ACCOUNT_OPTIONS.map((a) => (
+                      <option key={a.code} value={a.code} className="bg-[#0f1117]">{a.code} - {a.name}</option>
+                    ))}
+                  </select>
+                  {lineErr?.accountCode && <p className="text-xs text-red-400 mt-0.5">{lineErr.accountCode}</p>}
+                </div>
+                <input type="text" placeholder={tJE(lang, "lineDescPlaceholder")} value={line.description}
+                  onChange={(e) => setLine(line.id, "description", e.target.value)} className={inputCls()} />
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <label className="text-[10px] text-gray-500 mb-1 block">{tJE(lang, "colDebit")}</label>
+                    <input type="number" placeholder="0.00" value={line.debit}
+                      onChange={(e) => setLine(line.id, "debit", e.target.value)}
+                      className={inputCls(lineErr?.amounts) + " text-center"} />
+                  </div>
+                  <div>
+                    <label className="text-[10px] text-gray-500 mb-1 block">{tJE(lang, "colCredit")}</label>
+                    <input type="number" placeholder="0.00" value={line.credit}
+                      onChange={(e) => setLine(line.id, "credit", e.target.value)}
+                      className={inputCls(lineErr?.amounts) + " text-center"} />
+                  </div>
+                </div>
+                {lineErr?.amounts && <p className="text-xs text-red-400 text-center">{lineErr.amounts}</p>}
+              </motion.div>
+            );
+          })}
+          <button onClick={addLine}
+            className="flex items-center justify-center gap-2 py-2.5 bg-white/5 hover:bg-white/10 rounded-xl text-white text-sm border border-white/10 border-dashed transition-colors">
+            <Plus className="w-4 h-4" /> {tJE(lang, "addLine")}
+          </button>
+          {/* Mobile totals */}
+          <div className="grid grid-cols-2 gap-2">
+            <div className="bg-white/[0.04] rounded-lg px-3 py-2">
+              <p className="text-[10px] text-gray-500 mb-0.5">{tJE(lang, "colDebit")}</p>
+              <p className="text-sm font-bold text-white">{totalDebit.toLocaleString()}</p>
+            </div>
+            <div className="bg-white/[0.04] rounded-lg px-3 py-2">
+              <p className="text-[10px] text-gray-500 mb-0.5">{tJE(lang, "colCredit")}</p>
+              <p className="text-sm font-bold text-white">{totalCredit.toLocaleString()}</p>
+            </div>
+          </div>
+        </div>
+
+        {/* ── DESKTOP LINES TABLE (md+) ── */}
+        <div className="hidden md:block overflow-x-auto">
           <table className="w-full">
             <thead>
               <tr className="border-b border-white/10">
@@ -137,53 +202,31 @@ export default function EntryForm({ lang, onSave }: EntryFormProps) {
               {values.lines.map((line, idx) => {
                 const lineErr = errors.lines?.[idx];
                 return (
-                  <motion.tr
-                    key={line.id}
-                    initial={{ opacity: 0, y: -8 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className="border-b border-white/5"
-                  >
+                  <motion.tr key={line.id} initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} className="border-b border-white/5">
                     <td className="py-2 px-3">
-                      <select
-                        value={line.accountCode}
-                        onChange={(e) => setLine(line.id, "accountCode", e.target.value)}
-                        className={`w-full bg-white/5 border ${lineErr?.accountCode ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#F97316]`}
-                      >
+                      <select value={line.accountCode} onChange={(e) => setLine(line.id, "accountCode", e.target.value)}
+                        className={`w-full bg-white/5 border ${lineErr?.accountCode ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm focus:outline-none focus:border-[#F97316]`}>
                         <option value="">{tJE(lang, "selectAccount")}</option>
                         {ACCOUNT_OPTIONS.map((a) => (
-                          <option key={a.code} value={a.code} className="bg-[#0f1117]">
-                            {a.code} - {a.name}
-                          </option>
+                          <option key={a.code} value={a.code} className="bg-[#0f1117]">{a.code} - {a.name}</option>
                         ))}
                       </select>
                       {lineErr?.accountCode && <p className="text-xs text-red-400 mt-0.5">{lineErr.accountCode}</p>}
                     </td>
                     <td className="py-2 px-3">
-                      <input
-                        type="text"
-                        placeholder={tJE(lang, "lineDescPlaceholder")}
-                        value={line.description}
+                      <input type="text" placeholder={tJE(lang, "lineDescPlaceholder")} value={line.description}
                         onChange={(e) => setLine(line.id, "description", e.target.value)}
-                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#F97316]"
-                      />
+                        className="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-white text-sm placeholder:text-gray-600 focus:outline-none focus:border-[#F97316]" />
                     </td>
                     <td className="py-2 px-3">
-                      <input
-                        type="number"
-                        placeholder="0.00"
-                        value={line.debit}
+                      <input type="number" placeholder="0.00" value={line.debit}
                         onChange={(e) => setLine(line.id, "debit", e.target.value)}
-                        className={`w-full bg-white/5 border ${lineErr?.amounts ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm text-center focus:outline-none focus:border-[#F97316]`}
-                      />
+                        className={`w-full bg-white/5 border ${lineErr?.amounts ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm text-center focus:outline-none focus:border-[#F97316]`} />
                     </td>
                     <td className="py-2 px-3">
-                      <input
-                        type="number"
-                        placeholder="0.00"
-                        value={line.credit}
+                      <input type="number" placeholder="0.00" value={line.credit}
                         onChange={(e) => setLine(line.id, "credit", e.target.value)}
-                        className={`w-full bg-white/5 border ${lineErr?.amounts ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm text-center focus:outline-none focus:border-[#F97316]`}
-                      />
+                        className={`w-full bg-white/5 border ${lineErr?.amounts ? "border-red-500/60" : "border-white/10"} rounded-lg px-3 py-2 text-white text-sm text-center focus:outline-none focus:border-[#F97316]`} />
                       {lineErr?.amounts && <p className="text-xs text-red-400 mt-0.5 text-center">{lineErr.amounts}</p>}
                     </td>
                     <td className="py-2 px-3 text-center">
@@ -201,8 +244,7 @@ export default function EntryForm({ lang, onSave }: EntryFormProps) {
               <tr className="border-t-2 border-white/20">
                 <td colSpan={2} className="py-3 px-3">
                   <button onClick={addLine} className="flex items-center gap-2 px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-white transition-colors text-sm">
-                    <Plus className="w-4 h-4" />
-                    {tJE(lang, "addLine")}
+                    <Plus className="w-4 h-4" /> {tJE(lang, "addLine")}
                   </button>
                 </td>
                 <td className="py-3 px-3 text-center font-bold text-white">{totalDebit.toLocaleString()}</td>
@@ -213,23 +255,23 @@ export default function EntryForm({ lang, onSave }: EntryFormProps) {
           </table>
         </div>
 
-        {/* Balance indicator + save */}
-        <div className="flex items-center justify-between p-4 bg-white/5 rounded-xl">
+        {/* Balance indicator + save — stacks on mobile */}
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between p-4 bg-white/5 rounded-xl">
           <div className="flex items-center gap-3">
             {isBalanced ? (
               <>
-                <CheckCircle2 className="w-6 h-6 text-emerald-400" />
+                <CheckCircle2 className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400 shrink-0" />
                 <div>
-                  <p className="text-emerald-400 font-medium">{tJE(lang, "balanced")}</p>
-                  <p className="text-sm text-gray-400">{tJE(lang, "balancedSub")}</p>
+                  <p className="text-sm sm:text-base text-emerald-400 font-medium">{tJE(lang, "balanced")}</p>
+                  <p className="text-xs sm:text-sm text-gray-400">{tJE(lang, "balancedSub")}</p>
                 </div>
               </>
             ) : (
               <>
-                <AlertCircle className="w-6 h-6 text-red-400" />
+                <AlertCircle className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 shrink-0" />
                 <div>
-                  <p className="text-red-400 font-medium">{tJE(lang, "notBalanced")}</p>
-                  <p className="text-sm text-gray-400">
+                  <p className="text-sm sm:text-base text-red-400 font-medium">{tJE(lang, "notBalanced")}</p>
+                  <p className="text-xs sm:text-sm text-gray-400">
                     {tJEInterp(lang, "balanceDiff", { n: Math.abs(totalDebit - totalCredit).toLocaleString() })}
                   </p>
                 </div>
@@ -239,7 +281,7 @@ export default function EntryForm({ lang, onSave }: EntryFormProps) {
           <button
             onClick={handleSave}
             disabled={!isBalanced || saving}
-            className={`px-8 py-3 rounded-xl font-medium transition-all flex items-center gap-2 ${
+            className={`w-full sm:w-auto px-8 py-3 rounded-xl font-medium transition-all flex items-center justify-center gap-2 ${
               isBalanced && !saving
                 ? "bg-gradient-to-l from-[#F97316] to-[#EA580C] text-white hover:shadow-lg hover:shadow-orange-500/30"
                 : "bg-gray-700 text-gray-500 cursor-not-allowed"

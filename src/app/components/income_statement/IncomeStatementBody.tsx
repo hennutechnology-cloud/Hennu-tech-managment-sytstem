@@ -1,5 +1,5 @@
 // ============================================================
-// IncomeStatementBody.tsx
+// IncomeStatementBody.tsx — Responsive
 // ============================================================
 import { TrendingUp, TrendingDown, Activity, Minus } from "lucide-react";
 import { motion } from "motion/react";
@@ -12,7 +12,7 @@ function Row({ label, amount }: { label: string; amount: number }) {
   return (
     <div className="flex items-center justify-between py-2 border-b border-white/5">
       <span className="text-gray-300 text-sm">{label}</span>
-      <span className="text-white font-medium text-sm">{fmt(amount)} ر.س</span>
+      <span className="text-white font-medium text-sm whitespace-nowrap">{fmt(amount)} ر.س</span>
     </div>
   );
 }
@@ -21,7 +21,7 @@ function NegRow({ label, amount }: { label: string; amount: number }) {
   return (
     <div className="flex items-center justify-between py-2 border-b border-white/5">
       <span className="text-gray-300 text-sm">{label}</span>
-      <span className="text-white font-medium text-sm">({fmt(amount)}) ر.س</span>
+      <span className="text-white font-medium text-sm whitespace-nowrap">({fmt(amount)}) ر.س</span>
     </div>
   );
 }
@@ -32,7 +32,7 @@ function Subtotal({
   return (
     <div className="flex items-center justify-between py-3 border-t border-white/10 mt-1">
       <span className="text-white font-bold text-sm">{label}</span>
-      <span className={"font-bold text-base " + color}>
+      <span className={"font-bold text-sm sm:text-base whitespace-nowrap " + color}>
         {negative ? `(${fmt(amount)})` : fmt(amount)} ر.س
       </span>
     </div>
@@ -42,15 +42,15 @@ function Subtotal({
 export default function IncomeStatementBody({ data }: IncomeStatementBodyProps) {
   return (
     <GlassCard>
-      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-6">
+      <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="space-y-5 sm:space-y-6">
 
         {/* Revenue */}
         <div>
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <TrendingUp className="w-6 h-6 text-emerald-400" />
+          <h2 className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+            <TrendingUp className="w-5 h-5 sm:w-6 sm:h-6 text-emerald-400 shrink-0" />
             الإيرادات
           </h2>
-          <div className="space-y-0 pr-8">
+          <div className="space-y-0 sm:pr-8">
             <Row label="إيرادات المبيعات" amount={data.revenue.sales} />
             <Row label="إيرادات أخرى"     amount={data.revenue.otherIncome} />
             <Subtotal label="إجمالي الإيرادات" amount={data.revenue.total} color="text-emerald-400" />
@@ -59,11 +59,11 @@ export default function IncomeStatementBody({ data }: IncomeStatementBodyProps) 
 
         {/* COGS */}
         <div className="pt-4 border-t border-white/10">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Minus className="w-6 h-6 text-red-400" />
+          <h2 className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+            <Minus className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 shrink-0" />
             تكلفة البضاعة المباعة
           </h2>
-          <div className="space-y-0 pr-8">
+          <div className="space-y-0 sm:pr-8">
             <Row label="مواد خام"     amount={data.cogs.materials} />
             <Row label="عمالة مباشرة" amount={data.cogs.labor} />
             <Row label="تكاليف أخرى" amount={data.cogs.other} />
@@ -72,20 +72,22 @@ export default function IncomeStatementBody({ data }: IncomeStatementBodyProps) 
         </div>
 
         {/* Gross Profit */}
-        <div className="py-4 bg-emerald-500/10 rounded-xl px-6 border border-emerald-500/20">
-          <div className="flex items-center justify-between">
-            <span className="text-white font-bold text-lg">إجمالي الربح</span>
-            <span className="text-emerald-400 font-bold text-2xl">{fmt(data.grossProfit)} ر.س</span>
+        <div className="py-3 sm:py-4 bg-emerald-500/10 rounded-xl px-4 sm:px-6 border border-emerald-500/20">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-white font-bold text-base sm:text-lg">إجمالي الربح</span>
+            <span className="text-emerald-400 font-bold text-xl sm:text-2xl whitespace-nowrap">
+              {fmt(data.grossProfit)} ر.س
+            </span>
           </div>
         </div>
 
         {/* Operating Expenses */}
         <div className="pt-4 border-t border-white/10">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <TrendingDown className="w-6 h-6 text-red-400" />
+          <h2 className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+            <TrendingDown className="w-5 h-5 sm:w-6 sm:h-6 text-red-400 shrink-0" />
             المصروفات التشغيلية
           </h2>
-          <div className="space-y-0 pr-8">
+          <div className="space-y-0 sm:pr-8">
             <Row label="الرواتب والأجور"    amount={data.operatingExpenses.salaries} />
             <Row label="الإيجارات"           amount={data.operatingExpenses.rent} />
             <Row label="المصاريف الإدارية"  amount={data.operatingExpenses.administrative} />
@@ -98,20 +100,22 @@ export default function IncomeStatementBody({ data }: IncomeStatementBodyProps) 
         </div>
 
         {/* Operating Income */}
-        <div className="py-4 bg-blue-500/10 rounded-xl px-6 border border-blue-500/20">
-          <div className="flex items-center justify-between">
-            <span className="text-white font-bold text-lg">الدخل التشغيلي</span>
-            <span className="text-blue-400 font-bold text-2xl">{fmt(data.operatingIncome)} ر.س</span>
+        <div className="py-3 sm:py-4 bg-blue-500/10 rounded-xl px-4 sm:px-6 border border-blue-500/20">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-white font-bold text-base sm:text-lg">الدخل التشغيلي</span>
+            <span className="text-blue-400 font-bold text-xl sm:text-2xl whitespace-nowrap">
+              {fmt(data.operatingIncome)} ر.س
+            </span>
           </div>
         </div>
 
         {/* Other Expenses */}
         <div className="pt-4 border-t border-white/10">
-          <h2 className="text-xl font-bold text-white mb-4 flex items-center gap-2">
-            <Activity className="w-6 h-6 text-amber-400" />
+          <h2 className="text-base sm:text-xl font-bold text-white mb-3 sm:mb-4 flex items-center gap-2">
+            <Activity className="w-5 h-5 sm:w-6 sm:h-6 text-amber-400 shrink-0" />
             مصروفات أخرى
           </h2>
-          <div className="space-y-0 pr-8">
+          <div className="space-y-0 sm:pr-8">
             <Row label="فوائد بنكية" amount={data.otherExpenses.interest} />
             <Row label="ضرائب"        amount={data.otherExpenses.taxes} />
             <Subtotal label="إجمالي المصروفات الأخرى"
@@ -120,11 +124,13 @@ export default function IncomeStatementBody({ data }: IncomeStatementBodyProps) 
         </div>
 
         {/* Net Income */}
-        <div className="py-6 bg-gradient-to-l from-[#F97316]/20 to-[#EA580C]/10 rounded-xl
-                        px-6 border border-[#F97316]/30">
-          <div className="flex items-center justify-between">
-            <span className="text-white font-bold text-2xl">صافي الربح</span>
-            <span className="text-[#F97316] font-bold text-3xl">{fmt(data.netIncome)} ر.س</span>
+        <div className="py-4 sm:py-6 bg-gradient-to-l from-[#F97316]/20 to-[#EA580C]/10 rounded-xl
+                        px-4 sm:px-6 border border-[#F97316]/30">
+          <div className="flex items-center justify-between gap-2">
+            <span className="text-white font-bold text-xl sm:text-2xl">صافي الربح</span>
+            <span className="text-[#F97316] font-bold text-2xl sm:text-3xl whitespace-nowrap">
+              {fmt(data.netIncome)} ر.س
+            </span>
           </div>
         </div>
 

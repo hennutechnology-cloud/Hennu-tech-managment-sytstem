@@ -1,8 +1,5 @@
 // ============================================================
-// LedgerFilters.tsx
-// account.name and account.code are plain API strings — rendered directly.
-// All labels and the apply button go through tGL().
-// DatePicker gets lang prop for bilingual calendar.
+// LedgerFilters.tsx — Responsive
 // ============================================================
 import { Filter }    from "lucide-react";
 import GlassCard     from "../../core/shared/components/GlassCard";
@@ -18,7 +15,7 @@ export default function LedgerFilters({
 
   return (
     <GlassCard>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-4 gap-4">
 
         {/* Account selector */}
         <div>
@@ -31,7 +28,6 @@ export default function LedgerFilters({
           >
             {accounts.map((a) => (
               <option key={a.code} value={a.code} className="bg-[#0f1117]">
-                {/* account.code and account.name are plain API strings */}
                 {a.code} - {a.name}
               </option>
             ))}

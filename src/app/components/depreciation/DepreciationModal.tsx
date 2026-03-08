@@ -1,8 +1,5 @@
 // ============================================================
-// DepreciationModal.tsx
-// editAsset.name is a plain API string — used in subtitle directly.
-// method is a neutral key — select options use tDep() for display.
-// All labels and validation messages go through tDep().
+// DepreciationModal.tsx — Responsive
 // ============================================================
 import { useEffect, useState }     from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -24,32 +21,26 @@ const EMPTY: DepreciationFormValues = {
 
 function validate(values: DepreciationFormValues, lang: Lang): DepreciationFormErrors {
   const errors: DepreciationFormErrors = {};
-
   if (!values.name.trim())
     errors.name = tDep(lang, "errNameRequired");
   else if (values.name.trim().length < 2)
     errors.name = tDep(lang, "errNameShort");
-
   if (!values.cost.trim())
     errors.cost = tDep(lang, "errCostRequired");
   else if (isNaN(parseFloat(values.cost)) || parseFloat(values.cost) <= 0)
     errors.cost = tDep(lang, "errCostInvalid");
-
   if (!values.salvageValue.trim())
     errors.salvageValue = tDep(lang, "errSalvageRequired");
   else if (isNaN(parseFloat(values.salvageValue)) || parseFloat(values.salvageValue) < 0)
     errors.salvageValue = tDep(lang, "errSalvageInvalid");
   else if (parseFloat(values.salvageValue) >= parseFloat(values.cost))
     errors.salvageValue = tDep(lang, "errSalvageHigh");
-
   if (!values.usefulLife.trim())
     errors.usefulLife = tDep(lang, "errLifeRequired");
   else if (isNaN(parseInt(values.usefulLife)) || parseInt(values.usefulLife) < 1)
     errors.usefulLife = tDep(lang, "errLifeInvalid");
-
   if (!values.purchaseDate)
     errors.purchaseDate = tDep(lang, "errDateRequired");
-
   return errors;
 }
 
@@ -127,22 +118,157 @@ export default function DepreciationModal({
     finally { setDeleting(false); }
   }
 
+  // ── Shared form body ────────────────────────────────────────
+  const formBody = (
+    <div className="space-y-4 sm:space-y-5">
+      <Field label={tDep(lang, "fieldName")} error={errors.name}>
+        <input type="text" placeholder={tDep(lang, "fieldNamePlaceholder")}
+          value={values.name} onChange={(e) => set("name", e.target.value)}
+          className={inputCls(!!errors.name)} />
+      </Field>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Field label={tDep(lang, "fieldCost")} error={errors.cost}>
+          <input type="number" dir="ltr" placeholder="0" min="0"
+            value={values.cost} onChange={(e) => set("cost", e.target.value)}
+            className={inputCls(!!errors.cost)} />
+        </Field>
+        <Field label={tDep(lang, "fieldSalvageValue")} error={errors.salvageValue}>
+          <input type="number" dir="ltr" placeholder="0" min="0"
+            value={values.salvageValue} onChange={(e) => set("salvageValue", e.target.value)}
+            className={inputCls(!!errors.salvageValue)} />
+        </Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+        <Field label={tDep(lang, "fieldUsefulLife")} error={errors.usefulLife}>
+          <input type="number" dir="ltr" placeholder="10" min="1"
+            value={values.usefulLife} onChange={(e) => set("usefulLife", e.target.value)}
+            className={inputCls(!!errors.usefulLife)} />
+        </Field>
+        <Field label={tDep(lang, "fieldMethod")}>
+          <select value={values.method}
+            onChange={(e) => set("method", e.target.value as DepreciationMethod)}
+            className={inputCls(false) + " cursor-pointer"}>
+            <option value="straight-line"     className="bg-[#0f1117]">{tDep(lang, "methodStraightLine")}</option>
+            <option value="declining-balance" className="bg-[#0f1117]">{tDep(lang, "methodDeclining")}</option>
+          </select>
+        </Field>
+      </div>
+      <DatePicker
+        lang={lang}
+        label={tDep(lang, "fieldPurchaseDate")}
+        value={values.purchaseDate}
+        onChange={(v) => set("purchaseDate", v)}
+        error={errors.purchaseDate}
+      />
+      <AnimatePresence>
+        {confirmDelete && (
+          <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+            className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-300">
+            {tDep(lang, "deleteConfirmMsg")}
+          </motion.div>
+        )}
+      </AnimatePresence>
+    </div>
+  );
+
+  // ── Shared footer actions ───────────────────────────────────
+  const footerActions = (
+    <div className="flex items-center justify-between gap-3">
+      <div>
+        {isEdit && onDelete && (
+          <button onClick={handleDelete} disabled={deleting}
+            className={`px-3 sm:px-4 py-2.5 rounded-xl border text-sm font-medium flex items-center gap-2 transition-all
+              ${confirmDelete
+                ? "border-red-500 bg-red-500/20 text-red-300 hover:bg-red-500/30"
+                : "border-white/10 text-gray-400 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10"
+              } disabled:opacity-50 disabled:cursor-not-allowed`}>
+            {deleting
+              ? <span className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
+              : <Trash2 className="w-4 h-4" />}
+            <span className="hidden sm:inline">
+              {confirmDelete ? tDep(lang, "confirmDelete") : tDep(lang, "delete")}
+            </span>
+          </button>
+        )}
+      </div>
+      <div className="flex items-center gap-2 sm:gap-3">
+        <button onClick={onClose}
+          className="px-4 sm:px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
+          {tDep(lang, "cancel")}
+        </button>
+        <button onClick={handleSubmit} disabled={saving}
+          className="px-4 sm:px-6 py-2.5 rounded-xl bg-gradient-to-l from-[#F97316] to-[#EA580C] text-white text-sm font-medium flex items-center gap-2 hover:shadow-lg hover:shadow-orange-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
+          {saving
+            ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+            : <Save className="w-4 h-4" />}
+          {isEdit ? tDep(lang, "save") : tDep(lang, "addBtn")}
+        </button>
+      </div>
+    </div>
+  );
+
   return (
     <AnimatePresence>
       {isOpen && (
         <>
+          {/* Backdrop */}
           <motion.div key="backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
 
-          <motion.div key="modal"
-            initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }}
+          {/* ── MOBILE: bottom sheet ── */}
+          <motion.div
+            key="modal-mobile"
+            initial={{ y: "100%" }}
+            animate={{ y: 0 }}
+            exit={{ y: "100%" }}
+            transition={{ type: "spring", stiffness: 320, damping: 30 }}
+            className="sm:hidden fixed inset-x-0 bottom-0 z-50 bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl shadow-black/50 max-h-[94dvh] flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1 shrink-0">
+              <div className="w-10 h-1 rounded-full bg-white/20" />
+            </div>
+
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-white/10 bg-gradient-to-l from-orange-500/10 to-transparent shrink-0">
+              <div>
+                <h2 className="text-base font-bold text-white">
+                  {isEdit ? tDep(lang, "modalEditTitle") : tDep(lang, "modalAddTitle")}
+                </h2>
+                <p className="text-xs text-gray-400 mt-0.5">
+                  {isEdit
+                    ? tDepInterp(lang, "modalEditSubtitle", { name: editAsset!.name })
+                    : tDep(lang, "modalAddSubtitle")}
+                </p>
+              </div>
+              <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Scrollable body */}
+            <div className="overflow-y-auto flex-1 px-5 py-5">
+              {formBody}
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-4 border-t border-white/10 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
+              {footerActions}
+            </div>
+          </motion.div>
+
+          {/* ── TABLET+: centered dialog (original) ── */}
+          <motion.div
+            key="modal-desktop"
+            initial={{ opacity: 0, scale: 0.95, y: 20 }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
             exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="fixed inset-0 z-50 flex items-center justify-center p-4"
+            className="hidden sm:flex fixed inset-0 z-50 items-center justify-center p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="w-full max-w-lg bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl shadow-black/50">
-
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-gradient-to-l from-orange-500/10 to-transparent rounded-t-2xl">
                 <div>
@@ -161,93 +287,12 @@ export default function DepreciationModal({
               </div>
 
               {/* Body */}
-              <div className="px-6 py-6 space-y-5">
-
-                <Field label={tDep(lang, "fieldName")} error={errors.name}>
-                  <input type="text" placeholder={tDep(lang, "fieldNamePlaceholder")}
-                    value={values.name} onChange={(e) => set("name", e.target.value)}
-                    className={inputCls(!!errors.name)} />
-                </Field>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label={tDep(lang, "fieldCost")} error={errors.cost}>
-                    <input type="number" dir="ltr" placeholder="0" min="0"
-                      value={values.cost} onChange={(e) => set("cost", e.target.value)}
-                      className={inputCls(!!errors.cost)} />
-                  </Field>
-                  <Field label={tDep(lang, "fieldSalvageValue")} error={errors.salvageValue}>
-                    <input type="number" dir="ltr" placeholder="0" min="0"
-                      value={values.salvageValue} onChange={(e) => set("salvageValue", e.target.value)}
-                      className={inputCls(!!errors.salvageValue)} />
-                  </Field>
-                </div>
-
-                <div className="grid grid-cols-2 gap-4">
-                  <Field label={tDep(lang, "fieldUsefulLife")} error={errors.usefulLife}>
-                    <input type="number" dir="ltr" placeholder="10" min="1"
-                      value={values.usefulLife} onChange={(e) => set("usefulLife", e.target.value)}
-                      className={inputCls(!!errors.usefulLife)} />
-                  </Field>
-                  <Field label={tDep(lang, "fieldMethod")}>
-                    <select value={values.method}
-                      onChange={(e) => set("method", e.target.value as DepreciationMethod)}
-                      className={inputCls(false) + " cursor-pointer"}>
-                      <option value="straight-line"    className="bg-[#0f1117]">{tDep(lang, "methodStraightLine")}</option>
-                      <option value="declining-balance" className="bg-[#0f1117]">{tDep(lang, "methodDeclining")}</option>
-                    </select>
-                  </Field>
-                </div>
-
-                <DatePicker
-                  lang={lang}
-                  label={tDep(lang, "fieldPurchaseDate")}
-                  value={values.purchaseDate}
-                  onChange={(v) => set("purchaseDate", v)}
-                  error={errors.purchaseDate}
-                />
-
-                <AnimatePresence>
-                  {confirmDelete && (
-                    <motion.div initial={{ opacity: 0, y: -8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
-                      className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl text-sm text-red-300">
-                      {tDep(lang, "deleteConfirmMsg")}
-                    </motion.div>
-                  )}
-                </AnimatePresence>
-              </div>
+              <div className="px-6 py-6">{formBody}</div>
 
               {/* Footer */}
-              <div className="flex items-center justify-between px-6 py-4 border-t border-white/10 rounded-b-2xl">
-                <div>
-                  {isEdit && onDelete && (
-                    <button onClick={handleDelete} disabled={deleting}
-                      className={`px-4 py-2.5 rounded-xl border text-sm font-medium flex items-center gap-2 transition-all
-                        ${confirmDelete
-                          ? "border-red-500 bg-red-500/20 text-red-300 hover:bg-red-500/30"
-                          : "border-white/10 text-gray-400 hover:border-red-500/50 hover:text-red-400 hover:bg-red-500/10"
-                        } disabled:opacity-50 disabled:cursor-not-allowed`}>
-                      {deleting
-                        ? <span className="w-4 h-4 border-2 border-red-400/30 border-t-red-400 rounded-full animate-spin" />
-                        : <Trash2 className="w-4 h-4" />}
-                      {confirmDelete ? tDep(lang, "confirmDelete") : tDep(lang, "delete")}
-                    </button>
-                  )}
-                </div>
-                <div className="flex items-center gap-3">
-                  <button onClick={onClose}
-                    className="px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
-                    {tDep(lang, "cancel")}
-                  </button>
-                  <button onClick={handleSubmit} disabled={saving}
-                    className="px-6 py-2.5 rounded-xl bg-gradient-to-l from-[#F97316] to-[#EA580C] text-white text-sm font-medium flex items-center gap-2 hover:shadow-lg hover:shadow-orange-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                    {saving
-                      ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                      : <Save className="w-4 h-4" />}
-                    {isEdit ? tDep(lang, "save") : tDep(lang, "addBtn")}
-                  </button>
-                </div>
+              <div className="px-6 py-4 border-t border-white/10 rounded-b-2xl">
+                {footerActions}
               </div>
-
             </div>
           </motion.div>
         </>

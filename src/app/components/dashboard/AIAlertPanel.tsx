@@ -1,7 +1,5 @@
 // ============================================================
-// AIAlertPanel.tsx
-// alert.title and alert.description are plain API strings — rendered directly.
-// Section title and risk gradients go through tDash() / RISK_GRADIENT.
+// AIAlertPanel.tsx — Responsive
 // ============================================================
 import { motion }          from "motion/react";
 import { AlertTriangle, TrendingDown, Activity } from "lucide-react";
@@ -22,12 +20,12 @@ function getAlertIcon(type: AiAlert["iconType"]) {
 export default function AIAlertPanel({ alerts, lang }: AIAlertPanelProps) {
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-        <AlertTriangle className="w-6 h-6 text-[#F97316]" />
+      <h2 className="text-xl sm:text-2xl font-bold text-white mb-4 flex items-center gap-2">
+        <AlertTriangle className="w-5 h-5 sm:w-6 sm:h-6 text-[#F97316] shrink-0" />
         {tDash(lang, "alertsTitle")}
       </h2>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-3 sm:gap-4">
         {alerts.map((alert, index) => {
           const Icon = getAlertIcon(alert.iconType);
           return (
@@ -38,12 +36,15 @@ export default function AIAlertPanel({ alerts, lang }: AIAlertPanelProps) {
               transition={{ delay: index * 0.1 }}
             >
               <GlassCard className={`bg-gradient-to-br ${RISK_GRADIENT[alert.risk]}`}>
-                <div className="flex items-start gap-4">
-                  <Icon className="w-6 h-6 text-[#F97316] flex-shrink-0 mt-1" />
-                  <div>
-                    {/* alert.title and alert.description are plain API strings */}
-                    <h4 className="font-bold text-white mb-2">{alert.title}</h4>
-                    <p className="text-sm text-gray-300 leading-relaxed">{alert.description}</p>
+                <div className="flex items-start gap-3 sm:gap-4">
+                  <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-[#F97316] flex-shrink-0 mt-0.5 sm:mt-1" />
+                  <div className="min-w-0">
+                    <h4 className="font-bold text-white mb-1 sm:mb-2 text-sm sm:text-base">
+                      {alert.title}
+                    </h4>
+                    <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+                      {alert.description}
+                    </p>
                   </div>
                 </div>
               </GlassCard>

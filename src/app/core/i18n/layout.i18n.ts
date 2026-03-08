@@ -17,6 +17,8 @@ const LAYOUT_STRINGS = {
   // ── Main navigation ───────────────────────────────────────
   navDashboard:     { ar: "لوحة التحكم",               en: "Dashboard"               },
   navProjects:      { ar: "إدارة المشاريع",             en: "Projects"                },
+  navBOQComparison: { ar: "مقايسات الأعمال",            en: "BOQ Comparison"          },
+  navBOQManagement: { ar: "البنود (BOQ)",               en: "BOQ Management"          },
   navChartAccounts: { ar: "دليل الحسابات",              en: "Chart of Accounts"       },
   navJournalEntries:{ ar: "قيود اليومية",               en: "Journal Entries"         },
   navGeneralLedger: { ar: "الأستاذ العام",              en: "General Ledger"          },
@@ -39,6 +41,8 @@ export function tLayout(lang: Lang, key: LayoutStringKey): string {
 export const ROUTE_LABEL_KEYS: Record<string, LayoutStringKey> = {
   "/":                    "navDashboard",
   "/projects":            "navProjects",
+  "/boq-comparison":      "navBOQComparison",
+  "/boq-management":      "navBOQManagement",
   "/chart-of-accounts":   "navChartAccounts",
   "/journal-entries":     "navJournalEntries",
   "/general-ledger":      "navGeneralLedger",

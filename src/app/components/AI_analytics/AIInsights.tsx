@@ -1,7 +1,10 @@
 // ============================================================
-// AIInsights.tsx
-// title and description come as plain strings from the API —
-// render them directly, no resolver needed.
+// AIInsights.tsx — responsive: mobile / tablet / desktop
+// Mobile:  single column
+// Tablet:  2 columns
+// Desktop: 2 columns (cards are naturally tall — grid works well)
+// RTL:     icon + confidence badge placement flips
+// title/description are plain API strings — rendered directly.
 // ============================================================
 import { Brain, TrendingUp, AlertTriangle, ShoppingCart, ShieldAlert } from "lucide-react";
 import { motion }    from "motion/react";
@@ -23,8 +26,12 @@ const RISK_GRADIENT: Record<string, string> = {
   low:    "from-emerald-500/20 to-emerald-600/10 border-emerald-500/30",
 };
 
-function InsightCard({ insight, index, lang }: { insight: AIInsight; index: number; lang: Lang }) {
-  const Icon = ICON_MAP[insight.iconKey];
+function InsightCard({
+  insight, index, lang,
+}: { insight: AIInsight; index: number; lang: Lang }) {
+  const Icon  = ICON_MAP[insight.iconKey];
+  const isRtl = lang === "ar";
+
   return (
     <motion.div
       initial={{ opacity: 0, scale: 0.95 }}
@@ -32,19 +39,31 @@ function InsightCard({ insight, index, lang }: { insight: AIInsight; index: numb
       transition={{ delay: index * 0.1 }}
       className="h-full"
     >
-      <GlassCard className={`bg-gradient-to-br h-full ${RISK_GRADIENT[insight.risk]}`}>
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-white/10 rounded-xl flex-shrink-0">
-            <Icon className="w-6 h-6 text-[#F97316]" />
+      <GlassCard className={`bg-gradient-to-br h-full p-4 sm:p-6 ${RISK_GRADIENT[insight.risk]}`}>
+        <div className={`flex items-start gap-3 sm:gap-4 ${isRtl ? "flex-row-reverse" : ""}`}>
+
+          {/* Icon */}
+          <div className="p-2.5 sm:p-3 bg-white/10 rounded-xl shrink-0">
+            <Icon className="w-5 h-5 sm:w-6 sm:h-6 text-[#F97316]" />
           </div>
-          <div className="flex-1">
-            <div className="flex items-start justify-between mb-2">
-              <h4 className="font-bold text-white">{insight.title}</h4>
-              <span className="px-2 py-1 bg-white/10 rounded text-xs text-gray-300 flex-shrink-0 mr-2">
+
+          {/* Content */}
+          <div className={`flex-1 min-w-0 ${isRtl ? "text-right" : "text-left"}`}>
+
+            {/* Title row + confidence badge */}
+            <div className={`flex items-start gap-2 mb-2 flex-wrap
+                             ${isRtl ? "flex-row-reverse" : ""}`}>
+              <h4 className="font-bold text-white text-sm sm:text-base leading-tight flex-1 min-w-0">
+                {insight.title}
+              </h4>
+              <span className="px-2 py-0.5 bg-white/10 rounded text-xs text-gray-300 shrink-0 whitespace-nowrap">
                 {tAI(lang, "confidenceLabel")} {insight.confidence}%
               </span>
             </div>
-            <p className="text-sm text-gray-300 leading-relaxed">{insight.description}</p>
+
+            <p className="text-xs sm:text-sm text-gray-300 leading-relaxed">
+              {insight.description}
+            </p>
           </div>
         </div>
       </GlassCard>
@@ -53,13 +72,20 @@ function InsightCard({ insight, index, lang }: { insight: AIInsight; index: numb
 }
 
 export default function AIInsights({ insights, lang }: AIInsightsProps) {
+  const isRtl = lang === "ar";
+
   return (
     <div>
-      <h2 className="text-2xl font-bold text-white mb-4 flex items-center gap-2">
-        <Brain className="w-6 h-6 text-[#F97316]" />
-        {tAI(lang, "insightsTitle")}
+      {/* Section header */}
+      <h2 className={`text-xl sm:text-2xl font-bold text-white mb-4
+                       flex items-center gap-2
+                       ${isRtl ? "flex-row-reverse" : ""}`}>
+        <Brain className="w-5 h-5 sm:w-6 sm:h-6 text-[#F97316] shrink-0" />
+        <span>{tAI(lang, "insightsTitle")}</span>
       </h2>
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+
+      {/* Cards grid: 1 col mobile → 2 col tablet+ */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         {insights.map((insight, i) => (
           <InsightCard key={i} insight={insight} index={i} lang={lang} />
         ))}

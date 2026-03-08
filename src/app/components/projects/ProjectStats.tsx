@@ -1,6 +1,5 @@
 // ============================================================
-// ProjectStats.tsx
-// All labels go through tProj(). Values are plain numbers.
+// ProjectStats.tsx — Responsive
 // ============================================================
 import { Building2, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
 import { motion } from "motion/react";
@@ -10,37 +9,14 @@ import type { ProjectStatsProps } from "../../core/models/projects.types";
 
 export default function ProjectStats({ stats, lang }: ProjectStatsProps) {
   const cards = [
-    {
-      key:   "statsTotal",
-      value: stats.total,
-      icon:  Building2,
-      color: "text-[#F97316]",
-    },
-    {
-      key:   "statsActive",
-      value: stats.active,
-      icon:  Clock,
-      color: "text-blue-400",
-    },
-    {
-      key:   "statsCompleted",
-      value: stats.completed,
-      icon:  CheckCircle2,
-      color: "text-emerald-400",
-    },
-    {
-      key:   "statsDelayed",
-      value: stats.delayed,
-      icon:  AlertTriangle,
-      color: "text-red-400",
-    },
+    { key: "statsTotal",     value: stats.total,     icon: Building2,    color: "text-[#F97316]"   },
+    { key: "statsActive",    value: stats.active,    icon: Clock,         color: "text-blue-400"    },
+    { key: "statsCompleted", value: stats.completed, icon: CheckCircle2,  color: "text-emerald-400" },
+    { key: "statsDelayed",   value: stats.delayed,   icon: AlertTriangle, color: "text-red-400"     },
   ] as const;
 
   return (
-    <div
-      dir={dirAttr(lang)}
-      className="grid grid-cols-1 md:grid-cols-4 gap-4"
-    >
+    <div dir={dirAttr(lang)} className="grid grid-cols-2 md:grid-cols-4 gap-3 sm:gap-4">
       {cards.map(({ key, value, icon: Icon, color }, i) => (
         <motion.div
           key={key}
@@ -49,12 +25,12 @@ export default function ProjectStats({ stats, lang }: ProjectStatsProps) {
           transition={{ delay: i * 0.08 }}
         >
           <GlassCard hover>
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-2">
               <div>
-                <p className="text-gray-400 text-sm mb-1">{tProj(lang, key)}</p>
-                <h3 className="text-2xl font-bold text-white">{value}</h3>
+                <p className="text-gray-400 text-xs sm:text-sm mb-1">{tProj(lang, key)}</p>
+                <h3 className="text-xl sm:text-2xl font-bold text-white">{value}</h3>
               </div>
-              <Icon className={`w-10 h-10 ${color}`} />
+              <Icon className={`w-8 h-8 sm:w-10 sm:h-10 ${color} shrink-0`} />
             </div>
           </GlassCard>
         </motion.div>

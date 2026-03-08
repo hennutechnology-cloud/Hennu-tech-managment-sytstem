@@ -1,20 +1,18 @@
 // ============================================================
-// AnalyticalReportsExport.tsx
-// month and category come as plain API strings — used directly
-// in the PDF HTML. Only labels and titles go through tAR().
+// AnalyticalReportsExport.tsx — responsive
 // ============================================================
-import { useState }  from "react";
-import GlassCard     from "../../core/shared/components/GlassCard";
-import { exportPdf } from "../../core/shared/components/exportPdf";
-import { Download, Calendar } from "lucide-react";
+import { useState }            from "react";
+import GlassCard               from "../../core/shared/components/GlassCard";
+import { exportPdf }           from "../../core/shared/components/exportPdf";
+import { Download, Calendar }  from "lucide-react";
 import { useAnalyticalReports }
-                     from "../../core/services/AnalyticalReports.service";
+                               from "../../core/services/AnalyticalReports.service";
 import { tAR, formatDateDisplay, formatNum }
-                     from "../../core/i18n/analyticalReports.i18n";
-import { SHORT_MONTHS } from "../../core/i18n/util.i18n";
+                               from "../../core/i18n/analyticalReports.i18n";
+import { SHORT_MONTHS }        from "../../core/i18n/util.i18n";
 import type { AnalyticalReportsData, DateRange }
-                     from "../../core/models/AnalyticalReports.types";
-import type { Lang } from "../../core/models/Settings.types";
+                               from "../../core/models/AnalyticalReports.types";
+import type { Lang }           from "../../core/models/Settings.types";
 
 interface Props { lang: Lang; }
 
@@ -58,9 +56,9 @@ function triggerPdfExport(data: AnalyticalReportsData, dateRange: DateRange, lan
       { label: tAR(lang, "toDate"),   value: formatDateDisplay(dateRange.to,   lang) },
     ],
     kpiCards: [
-      { label: tAR(lang, "avgProfitMargin"), value: `${avgMargin}%`,                                    color: "green"  },
-      { label: tAR(lang, "avgRoi"),          value: `${avgRoi}%`,                                       color: "orange" },
-      { label: tAR(lang, "totalExpenses"),   value: `${formatNum(totalExpenses, lang)} ${tAR(lang, "currency")}`, color: "red" },
+      { label: tAR(lang, "avgProfitMargin"), value: `${avgMargin}%`,                                              color: "green"  },
+      { label: tAR(lang, "avgRoi"),          value: `${avgRoi}%`,                                                 color: "orange" },
+      { label: tAR(lang, "totalExpenses"),   value: `${formatNum(totalExpenses, lang)} ${tAR(lang, "currency")}`, color: "red"    },
     ],
     sections: [
       {
@@ -107,6 +105,7 @@ function triggerPdfExport(data: AnalyticalReportsData, dateRange: DateRange, lan
 export default function AnalyticalReportsExport({ lang }: Props) {
   const { data, dateRange } = useAnalyticalReports();
   const [scheduling, setScheduling] = useState(false);
+  const isRtl = lang === "ar";
 
   function handlePdfExport() {
     if (!data) return;
@@ -118,34 +117,49 @@ export default function AnalyticalReportsExport({ lang }: Props) {
     setTimeout(() => setScheduling(false), 1500);
   }
 
-  return (
-    <GlassCard>
-      <h2 className="text-xl font-bold text-white mb-4">{tAR(lang, "exportTitle")}</h2>
-      <div className="flex items-center gap-4 flex-wrap">
+  const btnBase = `flex items-center justify-center gap-2
+                   px-4 sm:px-6 py-2.5 sm:py-3 rounded-xl transition-all
+                   text-sm sm:text-base font-medium text-white
+                   w-full sm:w-auto
+                   disabled:opacity-40 disabled:cursor-not-allowed
+                   ${isRtl ? "flex-row-reverse" : ""}`;
 
+  return (
+    <GlassCard className="p-4 sm:p-6">
+      <h2 className={`text-lg sm:text-xl font-bold text-white mb-4
+                       ${isRtl ? "text-right" : "text-left"}`}>
+        {tAR(lang, "exportTitle")}
+      </h2>
+
+      {/* Buttons: stacked on mobile, row on sm+ */}
+      <div className={`flex flex-col sm:flex-row gap-3 sm:gap-4
+                        ${isRtl ? "sm:flex-row-reverse" : ""}`}>
+
+        {/* PDF Export */}
         <button
           onClick={handlePdfExport}
           disabled={!data}
-          className="px-6 py-3 bg-gradient-to-l from-red-500 to-red-600 text-white rounded-xl
-            hover:shadow-lg hover:shadow-red-500/30 transition-all flex items-center gap-2
-            disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`${btnBase}
+                      bg-gradient-to-l from-red-500 to-red-600
+                      hover:shadow-lg hover:shadow-red-500/30`}
         >
-          <Download className="w-5 h-5" />
-          {tAR(lang, "exportPdf")}
+          <Download className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
+          <span>{tAR(lang, "exportPdf")}</span>
         </button>
 
+        {/* Schedule */}
         <button
           onClick={handleSchedule}
           disabled={scheduling}
-          className="px-6 py-3 bg-gradient-to-l from-blue-500 to-blue-600 text-white rounded-xl
-            hover:shadow-lg hover:shadow-blue-500/30 transition-all flex items-center gap-2
-            disabled:opacity-40 disabled:cursor-not-allowed"
+          className={`${btnBase}
+                      bg-gradient-to-l from-blue-500 to-blue-600
+                      hover:shadow-lg hover:shadow-blue-500/30`}
         >
           {scheduling
-            ? <span className="w-5 h-5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            : <Calendar className="w-5 h-5" />
+            ? <span className="w-4 h-4 sm:w-5 sm:h-5 border-2 border-white/30 border-t-white rounded-full animate-spin shrink-0" />
+            : <Calendar className="w-4 h-4 sm:w-5 sm:h-5 shrink-0" />
           }
-          {scheduling ? tAR(lang, "scheduling") : tAR(lang, "scheduleReports")}
+          <span>{scheduling ? tAR(lang, "scheduling") : tAR(lang, "scheduleReports")}</span>
         </button>
 
       </div>

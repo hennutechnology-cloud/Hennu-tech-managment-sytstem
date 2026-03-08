@@ -1,7 +1,5 @@
 // ============================================================
 // AccountModal.tsx
-// account.name in the parent selector comes from the API — rendered directly.
-// All labels, placeholders, and validation messages go through tCOA().
 // ============================================================
 import { useEffect, useState }     from "react";
 import { motion, AnimatePresence } from "motion/react";

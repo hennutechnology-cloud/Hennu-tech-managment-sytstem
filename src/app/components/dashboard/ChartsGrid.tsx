@@ -1,18 +1,10 @@
 // ============================================================
-// ChartsGrid.tsx
-// month is numeric (1–12) → converted to SHORT_MONTHS[lang].
-// category is a plain API string → rendered directly.
-// All chart titles and series names go through tDash().
-//
-// RTL / overflow fixes:
-//   • formatAxisNum() keeps Y-axis tick labels short (e.g. "1.5M" / "١.٥م")
-//   • chartLayout() centralises yAxisSide, widths, and margins per language
-//   • margin.right / margin.left give each axis room so labels never
-//     clip into the plot area when the language switches
+// ChartsGrid.tsx — Responsive
 // ============================================================
-import GlassCard          from "../../core/shared/components/GlassCard";
+import { useEffect, useState } from "react";
+import GlassCard               from "../../core/shared/components/GlassCard";
 import { tDash, formatAxisNum, chartLayout } from "../../core/i18n/dashboard.i18n";
-import { SHORT_MONTHS }   from "../../core/i18n/util.i18n";
+import { SHORT_MONTHS }        from "../../core/i18n/util.i18n";
 import type { ChartsGridProps } from "../../core/models/dashboard.types";
 import {
   LineChart, Line, BarChart, Bar, AreaChart, Area,
@@ -30,34 +22,45 @@ const tooltipStyle = {
 };
 const axisTickStyle = { fontSize: 11, fill: "#94A3B8" };
 
+/** Returns a chart height that matches the current viewport width. */
+function useChartHeight() {
+  const getHeight = () => {
+    if (typeof window === "undefined") return 300;
+    if (window.innerWidth < 768) return 220;
+    if (window.innerWidth < 1024) return 260;
+    return 300;
+  };
+  const [height, setHeight] = useState(getHeight);
+  useEffect(() => {
+    const handler = () => setHeight(getHeight());
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return height;
+}
+
 export default function ChartsGrid({ data, lang }: ChartsGridProps) {
-  // Convert numeric month to localised short label
+  const chartHeight = useChartHeight();
+
   const revenueData  = data.revenueExpense.map((d) => ({ ...d, month: SHORT_MONTHS[lang][d.month - 1] }));
   const profitData   = data.profit.map((d)         => ({ ...d, month: SHORT_MONTHS[lang][d.month - 1] }));
   const cashFlowData = data.cashFlow.map((d)        => ({ ...d, month: SHORT_MONTHS[lang][d.month - 1] }));
 
   const cl = chartLayout(lang);
-
-  /**
-   * Shared Y-axis tick formatter.
-   * Converts raw numbers → compact labels so they fit inside the reserved width.
-   */
   const yTickFormatter = (v: number) => formatAxisNum(v, lang);
 
   return (
-    <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+    <div className="grid grid-cols-1 lg:grid-cols-2 gap-4 sm:gap-6">
 
       {/* ── Revenue vs Expenses ── */}
       <GlassCard>
-        <h3 className="text-xl font-bold text-white mb-6">{tDash(lang, "revenueExpenseTitle")}</h3>
-        <ResponsiveContainer width="100%" height={300}>
+        <h3 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">
+          {tDash(lang, "revenueExpenseTitle")}
+        </h3>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <LineChart data={revenueData} margin={cl.margin}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            <XAxis
-              dataKey="month"
-              stroke="#94A3B8"
-              tick={axisTickStyle}
-            />
+            <XAxis dataKey="month" stroke="#94A3B8" tick={axisTickStyle} />
             <YAxis
               orientation={cl.yAxisSide}
               stroke="#94A3B8"
@@ -66,18 +69,16 @@ export default function ChartsGrid({ data, lang }: ChartsGridProps) {
               tickFormatter={yTickFormatter}
             />
             <Tooltip {...tooltipStyle} />
-            <Legend />
-            <Line
-              type="monotone" dataKey="revenue"
-              stroke="#10B981" strokeWidth={3}
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Line type="monotone" dataKey="revenue"
+              stroke="#10B981" strokeWidth={2.5}
               name={tDash(lang, "revenueLabel")}
-              dot={{ fill: "#10B981", r: 3 }}
+              dot={{ fill: "#10B981", r: 2.5 }}
             />
-            <Line
-              type="monotone" dataKey="expenses"
-              stroke="#EF4444" strokeWidth={3}
+            <Line type="monotone" dataKey="expenses"
+              stroke="#EF4444" strokeWidth={2.5}
               name={tDash(lang, "expensesLabel")}
-              dot={{ fill: "#EF4444", r: 3 }}
+              dot={{ fill: "#EF4444", r: 2.5 }}
             />
           </LineChart>
         </ResponsiveContainer>
@@ -85,15 +86,13 @@ export default function ChartsGrid({ data, lang }: ChartsGridProps) {
 
       {/* ── Monthly Profit ── */}
       <GlassCard>
-        <h3 className="text-xl font-bold text-white mb-6">{tDash(lang, "profitTitle")}</h3>
-        <ResponsiveContainer width="100%" height={300}>
+        <h3 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">
+          {tDash(lang, "profitTitle")}
+        </h3>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart data={profitData} margin={cl.margin}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            <XAxis
-              dataKey="month"
-              stroke="#94A3B8"
-              tick={axisTickStyle}
-            />
+            <XAxis dataKey="month" stroke="#94A3B8" tick={axisTickStyle} />
             <YAxis
               orientation={cl.yAxisSide}
               stroke="#94A3B8"
@@ -102,10 +101,7 @@ export default function ChartsGrid({ data, lang }: ChartsGridProps) {
               tickFormatter={yTickFormatter}
             />
             <Tooltip {...tooltipStyle} />
-            <Bar
-              dataKey="profit"
-              fill="#F97316"
-              radius={[8, 8, 0, 0]}
+            <Bar dataKey="profit" fill="#F97316" radius={[6, 6, 0, 0]}
               name={tDash(lang, "profitLabel")}
             />
           </BarChart>
@@ -114,15 +110,13 @@ export default function ChartsGrid({ data, lang }: ChartsGridProps) {
 
       {/* ── Cash Flow Forecast ── */}
       <GlassCard>
-        <h3 className="text-xl font-bold text-white mb-6">{tDash(lang, "cashFlowTitle")}</h3>
-        <ResponsiveContainer width="100%" height={300}>
+        <h3 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">
+          {tDash(lang, "cashFlowTitle")}
+        </h3>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <AreaChart data={cashFlowData} margin={cl.margin}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            <XAxis
-              dataKey="month"
-              stroke="#94A3B8"
-              tick={axisTickStyle}
-            />
+            <XAxis dataKey="month" stroke="#94A3B8" tick={axisTickStyle} />
             <YAxis
               orientation={cl.yAxisSide}
               stroke="#94A3B8"
@@ -131,10 +125,9 @@ export default function ChartsGrid({ data, lang }: ChartsGridProps) {
               tickFormatter={yTickFormatter}
             />
             <Tooltip {...tooltipStyle} />
-            <Area
-              type="monotone" dataKey="cashFlow"
+            <Area type="monotone" dataKey="cashFlow"
               stroke="#3B82F6" fill="#3B82F6"
-              strokeWidth={3} fillOpacity={0.3}
+              strokeWidth={2.5} fillOpacity={0.3}
               name={tDash(lang, "cashFlowLabel")}
             />
           </AreaChart>
@@ -142,24 +135,20 @@ export default function ChartsGrid({ data, lang }: ChartsGridProps) {
         <p className="text-xs text-gray-400 mt-2 text-center">{tDash(lang, "cashFlowNote")}</p>
       </GlassCard>
 
-      {/* ── Budget vs Actual — horizontal bar ── */}
+      {/* ── Budget vs Actual ── */}
       <GlassCard>
-        <h3 className="text-xl font-bold text-white mb-6">{tDash(lang, "budgetActualTitle")}</h3>
-        <ResponsiveContainer width="100%" height={300}>
+        <h3 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">
+          {tDash(lang, "budgetActualTitle")}
+        </h3>
+        <ResponsiveContainer width="100%" height={chartHeight}>
           <BarChart data={data.budgetActual} layout="vertical" margin={cl.margin}>
             <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-            {/* Numeric axis (horizontal) */}
             <XAxis
               type="number"
               stroke="#94A3B8"
               tick={axisTickStyle}
               tickFormatter={yTickFormatter}
             />
-            {/*
-              Category axis (vertical) — category is a plain API string.
-              orientation flips so labels sit on the leading edge in RTL.
-              width is generous enough for the longest Arabic category name.
-            */}
             <YAxis
               dataKey="category"
               type="category"
@@ -169,17 +158,11 @@ export default function ChartsGrid({ data, lang }: ChartsGridProps) {
               width={cl.categoryAxisWidth}
             />
             <Tooltip {...tooltipStyle} />
-            <Legend />
-            <Bar
-              dataKey="budget"
-              fill="#94A3B8"
-              radius={cl.barRadius}
+            <Legend wrapperStyle={{ fontSize: "12px" }} />
+            <Bar dataKey="budget" fill="#94A3B8" radius={cl.barRadius}
               name={tDash(lang, "budgetLabel")}
             />
-            <Bar
-              dataKey="actual"
-              fill="#F97316"
-              radius={cl.barRadius}
+            <Bar dataKey="actual" fill="#F97316" radius={cl.barRadius}
               name={tDash(lang, "actualLabel")}
             />
           </BarChart>

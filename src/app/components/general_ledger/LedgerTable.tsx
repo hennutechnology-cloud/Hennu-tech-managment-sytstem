@@ -1,9 +1,5 @@
 // ============================================================
-// LedgerTable.tsx
-// entry.description is a plain API string — rendered directly.
-// entry.date is "YYYY-MM-DD" — formatted by formatLedgerDate(lang, iso).
-// accountName is pre-built by the page (code + name from API) — rendered directly.
-// All labels and column headers go through tGL().
+// LedgerTable.tsx — Responsive
 // ============================================================
 import { motion }    from "motion/react";
 import GlassCard     from "../../core/shared/components/GlassCard";
@@ -18,18 +14,19 @@ export default function LedgerTable({
   return (
     <GlassCard>
       {/* Sub-header */}
-      <div className="flex items-start justify-between mb-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between mb-6">
         <div>
-          {/* accountName built from API strings — rendered directly */}
-          <h2 className="text-xl font-bold text-white">{accountName}</h2>
-          <p className="text-gray-400 text-sm mt-1">
+          <h2 className="text-base sm:text-xl font-bold text-white">{accountName}</h2>
+          <p className="text-gray-400 text-xs sm:text-sm mt-1">
             {tGLInterp(lang, "periodLabel", {
               from: formatLedgerDate(lang, filters.dateFrom),
               to:   formatLedgerDate(lang, filters.dateTo),
             })}
           </p>
         </div>
-        <div className="flex gap-6 text-right">
+
+        {/* Opening / closing balances */}
+        <div className="flex gap-4 sm:gap-6 sm:text-right">
           <div>
             <p className="text-xs text-gray-500">{tGL(lang, "openingBalance")}</p>
             <p className="text-sm font-bold text-white">{formatNum(summary.openingBalance, lang)} {cur}</p>
@@ -41,7 +38,69 @@ export default function LedgerTable({
         </div>
       </div>
 
-      <div className="overflow-x-auto">
+      {/* ── MOBILE CARD VIEW (< md) ── */}
+      <div className="md:hidden">
+        {entries.length === 0 ? (
+          <p className="py-10 text-center text-gray-500 text-sm">{tGL(lang, "noEntries")}</p>
+        ) : (
+          <div className="flex flex-col gap-2">
+            {entries.map((entry, index) => (
+              <motion.div
+                key={entry.id}
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                transition={{ delay: index * 0.04 }}
+                className="rounded-xl bg-white/[0.04] border border-white/8 px-4 py-3 flex flex-col gap-2"
+              >
+                {/* Date + description */}
+                <div className="flex items-start justify-between gap-2">
+                  <p className="text-white text-sm font-medium flex-1 leading-snug">{entry.description}</p>
+                  <p className="text-gray-500 text-xs shrink-0">{formatLedgerDate(lang, entry.date)}</p>
+                </div>
+
+                {/* Debit / Credit / Balance */}
+                <div className="grid grid-cols-3 gap-2">
+                  <div className="bg-white/[0.04] rounded-lg px-2 py-1.5">
+                    <p className="text-[10px] text-gray-500 mb-0.5">{tGL(lang, "colDebit")}</p>
+                    {entry.debit > 0
+                      ? <p className="text-xs text-emerald-400 font-semibold">{formatNum(entry.debit, lang)}</p>
+                      : <p className="text-xs text-gray-600">—</p>}
+                  </div>
+                  <div className="bg-white/[0.04] rounded-lg px-2 py-1.5">
+                    <p className="text-[10px] text-gray-500 mb-0.5">{tGL(lang, "colCredit")}</p>
+                    {entry.credit > 0
+                      ? <p className="text-xs text-red-400 font-semibold">{formatNum(entry.credit, lang)}</p>
+                      : <p className="text-xs text-gray-600">—</p>}
+                  </div>
+                  <div className="bg-white/[0.04] rounded-lg px-2 py-1.5">
+                    <p className="text-[10px] text-gray-500 mb-0.5">{tGL(lang, "colBalance")}</p>
+                    <p className="text-xs text-white font-semibold">{formatNum(entry.balance, lang)}</p>
+                  </div>
+                </div>
+              </motion.div>
+            ))}
+
+            {/* Mobile totals summary */}
+            <div className="mt-2 rounded-xl bg-white/[0.06] border border-white/15 px-4 py-3 grid grid-cols-3 gap-2">
+              <div>
+                <p className="text-[10px] text-gray-500 mb-0.5">{tGL(lang, "totals")} — {tGL(lang, "colDebit")}</p>
+                <p className="text-xs text-emerald-400 font-bold">{formatNum(summary.totalDebit, lang)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 mb-0.5">{tGL(lang, "colCredit")}</p>
+                <p className="text-xs text-red-400 font-bold">{formatNum(summary.totalCredit, lang)}</p>
+              </div>
+              <div>
+                <p className="text-[10px] text-gray-500 mb-0.5">{tGL(lang, "colBalance")}</p>
+                <p className="text-xs text-orange-400 font-bold">{formatNum(summary.closingBalance, lang)}</p>
+              </div>
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* ── TABLE VIEW (md+) ── */}
+      <div className="hidden md:block overflow-x-auto">
         <table className="w-full">
           <thead>
             <tr className="border-b border-white/10">
@@ -67,9 +126,7 @@ export default function LedgerTable({
                 transition={{ delay: index * 0.04 }}
                 className="border-b border-white/5 hover:bg-white/5 transition-colors"
               >
-                {/* entry.date formatted by formatLedgerDate */}
                 <td className="py-4 px-4 text-white text-sm">{formatLedgerDate(lang, entry.date)}</td>
-                {/* entry.description is a plain API string */}
                 <td className="py-4 px-4 text-white">{entry.description}</td>
                 <td className="py-4 px-4 text-center">
                   {entry.debit > 0

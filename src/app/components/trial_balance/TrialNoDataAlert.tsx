@@ -1,6 +1,5 @@
 // ============================================================
 // TrialNoDataAlert.tsx
-// All static text goes through tTB(). No hardcoded strings.
 // ============================================================
 import { motion, AnimatePresence } from "motion/react";
 import { AlertCircle, X }  from "lucide-react";
@@ -24,27 +23,26 @@ export default function TrialNoDataAlert({ lang, isOpen, onClose }: NoDataAlertP
             animate={{ opacity: 1, scale: 1,    y: 0  }}
             exit  ={{ opacity: 0, scale: 0.85, y: 16 }}
             transition={{ type: "spring", stiffness: 350, damping: 28 }}
-            className="fixed inset-0 z-[51] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[51] flex items-center justify-center p-3 sm:p-4"
             onClick={(e) => e.stopPropagation()}
           >
             <div
               dir={dirAttr(lang)}
-              className="w-full max-w-sm bg-[#0f1117] border border-amber-500/20
-                         rounded-2xl shadow-2xl shadow-amber-900/20 overflow-hidden"
+              className="w-full max-w-[calc(100vw-1.5rem)] sm:max-w-sm bg-[#0f1117]
+                         border border-amber-500/20 rounded-2xl shadow-2xl shadow-amber-900/20 overflow-hidden"
             >
               <div className="h-1 w-full bg-gradient-to-l from-amber-500 to-amber-400" />
-              <div className="px-6 py-7 flex flex-col items-center text-center">
-                <div className="w-16 h-16 rounded-full bg-amber-500/10 border border-amber-500/20
-                                flex items-center justify-center mb-5">
-                  <AlertCircle className="w-8 h-8 text-amber-400" />
+              <div className="px-4 sm:px-6 py-5 sm:py-7 flex flex-col items-center text-center">
+                <div className="w-14 h-14 sm:w-16 sm:h-16 rounded-full bg-amber-500/10 border border-amber-500/20
+                                flex items-center justify-center mb-4 sm:mb-5">
+                  <AlertCircle className="w-7 h-7 sm:w-8 sm:h-8 text-amber-400" />
                 </div>
 
-                <h3 className="text-lg font-bold text-white mb-2">
+                <h3 className="text-base sm:text-lg font-bold text-white mb-2">
                   {tTB(lang, "alertTitle")}
                 </h3>
 
-                {/* Split on \n to render the two lines */}
-                <p className="text-sm text-gray-400 leading-relaxed mb-6">
+                <p className="text-xs sm:text-sm text-gray-400 leading-relaxed mb-5 sm:mb-6">
                   {tTB(lang, "alertBody").split("\n").map((line, i) => (
                     <span key={i}>
                       {line}

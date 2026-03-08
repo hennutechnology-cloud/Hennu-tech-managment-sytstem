@@ -1,12 +1,10 @@
 // ============================================================
-// DepreciationChart.tsx
-// trend.year is a string ("2022"–"2026") — not a month, rendered directly.
-// Only chart title and series name go through tDep().
-// RTL-aware YAxis orientation.
+// DepreciationChart.tsx — Responsive
 // ============================================================
-import GlassCard          from "../../core/shared/components/GlassCard";
-import { useDepreciation } from "../../core/services/Depreciation.service";
-import { tDep }           from "../../core/i18n/depreciation.i18n";
+import { useEffect, useState }  from "react";
+import GlassCard                from "../../core/shared/components/GlassCard";
+import { useDepreciation }      from "../../core/services/Depreciation.service";
+import { tDep }                 from "../../core/i18n/depreciation.i18n";
 import type { DepreciationChartProps } from "../../core/models/Depreciation.types";
 import {
   BarChart, Bar, XAxis, YAxis, CartesianGrid,
@@ -22,28 +20,47 @@ const tooltipStyle = {
   },
 };
 
+function useChartHeight() {
+  const get = () => {
+    if (typeof window === "undefined") return 300;
+    if (window.innerWidth < 768)  return 220;
+    if (window.innerWidth < 1024) return 260;
+    return 300;
+  };
+  const [h, setH] = useState(get);
+  useEffect(() => {
+    const handler = () => setH(get());
+    window.addEventListener("resize", handler);
+    return () => window.removeEventListener("resize", handler);
+  }, []);
+  return h;
+}
+
 export default function DepreciationChart({ lang }: DepreciationChartProps) {
-  const { data } = useDepreciation();
-  if (!data) return <div className="h-[300px] rounded-xl bg-white/5 animate-pulse" />;
+  const { data }    = useDepreciation();
+  const chartHeight = useChartHeight();
+
+  if (!data) return <div className="h-[220px] sm:h-[260px] lg:h-[300px] rounded-xl bg-white/5 animate-pulse" />;
 
   const isRtl     = lang === "ar";
-  const yAxisSide = isRtl ? "right" : "left" as "right" | "left";
+  const yAxisSide = (isRtl ? "right" : "left") as "right" | "left";
 
   return (
     <GlassCard>
-      <h2 className="text-xl font-bold text-white mb-6">{tDep(lang, "chartTitle")}</h2>
-      <ResponsiveContainer width="100%" height={300}>
+      <h2 className="text-base sm:text-xl font-bold text-white mb-4 sm:mb-6">
+        {tDep(lang, "chartTitle")}
+      </h2>
+      <ResponsiveContainer width="100%" height={chartHeight}>
         <BarChart data={data.trend}>
           <CartesianGrid strokeDasharray="3 3" stroke="rgba(255,255,255,0.1)" />
-          {/* year is always a 4-digit year string from the API — render directly */}
-          <XAxis dataKey="year" stroke="#94A3B8" style={{ fontSize: "12px" }} />
-          <YAxis orientation={yAxisSide} stroke="#94A3B8" style={{ fontSize: "12px" }} />
+          <XAxis dataKey="year" stroke="#94A3B8" style={{ fontSize: "11px" }} />
+          <YAxis orientation={yAxisSide} stroke="#94A3B8" style={{ fontSize: "11px" }} />
           <Tooltip {...tooltipStyle} />
-          <Legend />
+          <Legend wrapperStyle={{ fontSize: "12px" }} />
           <Bar
             dataKey="depreciation"
             fill="#F97316"
-            radius={[8, 8, 0, 0]}
+            radius={[6, 6, 0, 0]}
             name={tDep(lang, "depreciationLabel")}
           />
         </BarChart>

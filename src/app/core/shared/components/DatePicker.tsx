@@ -1,25 +1,29 @@
 // ============================================================
-// DatePicker.tsx  — Arabic date picker with month/year grid selection
+// DatePicker.tsx  — Bilingual (AR / EN) date picker
 // Value format: "YYYY-MM-DD"
+// Uses util.i18n for all month/day names and labels.
 // ============================================================
 import { useState, useRef, useEffect, useCallback } from "react";
-import { createPortal } from "react-dom";
-import { motion, AnimatePresence } from "motion/react";
+import { createPortal }                              from "react-dom";
+import { motion, AnimatePresence }                   from "motion/react";
 import { Calendar, ChevronLeft, ChevronRight, ChevronUp } from "lucide-react";
+import { FULL_MONTHS, SHORT_MONTHS, tUtil }          from "../../i18n/util.i18n";
+import type { Lang }                                 from "../../models/Settings.types";
 
 interface DatePickerProps {
-  value: string;
-  onChange: (v: string) => void;
-  error?: string;
-  label?: string;
+  value:       string;
+  onChange:    (v: string) => void;
+  lang?:       Lang;          // defaults to "ar"
+  error?:      string;
+  label?:      string;
   placeholder?: string;
 }
 
-const MONTHS_AR = [
-  "يناير","فبراير","مارس","أبريل","مايو","يونيو",
-  "يوليو","أغسطس","سبتمبر","أكتوبر","نوفمبر","ديسمبر",
-];
-const DAYS_AR = ["أح","إث","ثل","أر","خم","جم","سب"];
+// Short day headers — Sun…Sat order (JS Date.getDay() = 0 is Sunday)
+const SHORT_DAYS: Record<Lang, string[]> = {
+  ar: ["أح", "إث", "ثل", "أر", "خم", "جم", "سب"],
+  en: ["Su",  "Mo",  "Tu",  "We",  "Th",  "Fr",  "Sa"],
+};
 
 const DROPDOWN_HEIGHT = 360;
 
@@ -36,23 +40,27 @@ function toStr(d: Date): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-function formatDisplay(v: string): string {
+function formatDisplay(v: string, lang: Lang): string {
   const d = parseDate(v);
   if (!d) return "";
-  return `${d.getDate()} ${MONTHS_AR[d.getMonth()]} ${d.getFullYear()}`;
-}
-
-// Generate a range of years centered around a given year
-function getYearRange(center: number): number[] {
-  const start = Math.floor((center - 1) / 12) * 12 + 1;
-  return Array.from({ length: 12 }, (_, i) => start + i);
+  // AR: "15 مارس 2025"   EN: "Mar 15, 2025"
+  const monthNames = lang === "ar" ? FULL_MONTHS.ar : SHORT_MONTHS.en;
+  return lang === "ar"
+    ? `${d.getDate()} ${monthNames[d.getMonth()]} ${d.getFullYear()}`
+    : `${monthNames[d.getMonth()]} ${d.getDate()}, ${d.getFullYear()}`;
 }
 
 export default function DatePicker({
-  value, onChange, error, label, placeholder = "اختر التاريخ",
+  value, onChange,
+  lang = "ar",
+  error, label,
+  placeholder,
 }: DatePickerProps) {
-  const [open, setOpen] = useState(false);
-  const [view, setView] = useState<View>("days");
+  // Resolve placeholder from util.i18n if not provided
+  const resolvedPlaceholder = placeholder ?? tUtil(lang, "today");
+
+  const [open, setOpen]       = useState(false);
+  const [view, setView]       = useState<View>("days");
   const [dropPos, setDropPos] = useState({ top: 0, left: 0, width: 0, openUpward: false });
   const triggerRef = useRef<HTMLButtonElement>(null);
   const dropRef    = useRef<HTMLDivElement>(null);
@@ -73,16 +81,13 @@ export default function DatePicker({
     }
   }, [value]);
 
-  // Reset to days view when closing
   useEffect(() => {
-    if (!open) {
-      setTimeout(() => setView("days"), 200);
-    }
+    if (!open) setTimeout(() => setView("days"), 200);
   }, [open]);
 
   const recalcPos = useCallback(() => {
     if (!triggerRef.current) return;
-    const rect = triggerRef.current.getBoundingClientRect();
+    const rect       = triggerRef.current.getBoundingClientRect();
     const spaceBelow = window.innerHeight - rect.bottom;
     const spaceAbove = rect.top;
     const openUpward = spaceBelow < DROPDOWN_HEIGHT && spaceAbove > spaceBelow;
@@ -94,9 +99,7 @@ export default function DatePicker({
     });
   }, []);
 
-  useEffect(() => {
-    if (open) recalcPos();
-  }, [open, recalcPos]);
+  useEffect(() => { if (open) recalcPos(); }, [open, recalcPos]);
 
   useEffect(() => {
     function handler(e: MouseEvent) {
@@ -121,14 +124,19 @@ export default function DatePicker({
     };
   }, [open]);
 
-  const selected  = parseDate(value);
+  const isRtl    = lang === "ar";
+  const selected = parseDate(value);
   const todayDate = new Date();
   todayDate.setHours(0, 0, 0, 0);
 
   const year  = cursor.getFullYear();
   const month = cursor.getMonth();
 
-  // ── Days view helpers ──────────────────────────────────────
+  // Localised month names for grids
+  const monthNames = FULL_MONTHS[lang];
+  const dayHeaders = SHORT_DAYS[lang];
+
+  // ── Days grid ─────────────────────────────────────────────
   const firstDay    = new Date(year, month, 1).getDay();
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const cells: (number | null)[] = [
@@ -137,10 +145,7 @@ export default function DatePicker({
   ];
   while (cells.length % 7 !== 0) cells.push(null);
 
-  const pick = (day: number) => {
-    onChange(toStr(new Date(year, month, day)));
-    setOpen(false);
-  };
+  const pick = (day: number) => { onChange(toStr(new Date(year, month, day))); setOpen(false); };
 
   const goToday = () => {
     const t = new Date();
@@ -149,59 +154,64 @@ export default function DatePicker({
     setOpen(false);
   };
 
-  // ── Month select ───────────────────────────────────────────
-  const pickMonth = (m: number) => {
-    setCursor(new Date(year, m, 1));
-    setView("days");
-  };
+  // ── Month / Year pickers ──────────────────────────────────
+  const pickMonth = (m: number) => { setCursor(new Date(year, m, 1)); setView("days"); };
 
-  // ── Year select ────────────────────────────────────────────
-  const years = Array.from({ length: 12 }, (_, i) => yearRangeStart + i);
-
+  const years    = Array.from({ length: 12 }, (_, i) => yearRangeStart + i);
   const pickYear = (y: number) => {
     setCursor(new Date(y, month, 1));
     setYearRangeStart(Math.floor((y - 1) / 12) * 12 + 1);
     setView("months");
   };
 
-  // ── Header label & click behaviour ────────────────────────
+  // ── Header ────────────────────────────────────────────────
   const headerLabel =
-    view === "years"
-      ? `${years[0]} — ${years[years.length - 1]}`
-      : view === "months"
-      ? `${year}`
-      : `${MONTHS_AR[month]} ${year}`;
+    view === "years"   ? `${years[0]} — ${years[years.length - 1]}`
+    : view === "months"? `${year}`
+    :                    `${monthNames[month]} ${year}`;
 
   const handleHeaderClick = () => {
     if (view === "days")   setView("months");
     else if (view === "months") setView("years");
-    // years → nothing (already deepest)
   };
 
   const handleBack = () => {
     if (view === "months") setView("days");
-    else if (view === "years") setView("months");
+    else if (view === "years")  setView("months");
   };
 
-  // ── Prev / Next for each view ──────────────────────────────
+  // Prev/Next direction is the same logically; arrows are
+  // visually swapped by RTL layout below.
   const handlePrev = () => {
-    if (view === "days")   setCursor(new Date(year, month - 1, 1));
+    if (view === "days")        setCursor(new Date(year, month - 1, 1));
     else if (view === "months") setCursor(new Date(year - 1, month, 1));
-    else setYearRangeStart((s) => s - 12);
+    else                        setYearRangeStart((s) => s - 12);
   };
 
   const handleNext = () => {
-    if (view === "days")   setCursor(new Date(year, month + 1, 1));
+    if (view === "days")        setCursor(new Date(year, month + 1, 1));
     else if (view === "months") setCursor(new Date(year + 1, month, 1));
-    else setYearRangeStart((s) => s + 12);
+    else                        setYearRangeStart((s) => s + 12);
   };
 
+  // "Back" breadcrumb text
+  const backLabel = view === "months"
+    ? (lang === "ar" ? "اختر الشهر" : "Choose month")
+    : (lang === "ar" ? "اختر السنة" : "Choose year");
+
+  // "Today" shortcut label
+  const todayLabel = lang === "ar"
+    ? `اليوم — ${formatDisplay(toStr(todayDate), lang)}`
+    : `Today — ${formatDisplay(toStr(todayDate), lang)}`;
+
+  // ─────────────────────────────────────────────────────────
   const dropdown = (
     <AnimatePresence>
       {open && (
         <motion.div
           ref={dropRef}
           key="dp-dropdown"
+          dir={isRtl ? "rtl" : "ltr"}
           initial={{ opacity: 0, y: dropPos.openUpward ? 6 : -6, scale: 0.97 }}
           animate={{ opacity: 1, y: 0, scale: 1 }}
           exit={{   opacity: 0, y: dropPos.openUpward ? 6 : -6, scale: 0.97 }}
@@ -218,46 +228,46 @@ export default function DatePicker({
         >
           {/* ── Header ── */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
-            {/* Left: next (RTL) */}
+
+            {/* In RTL this is visually on the left = "next"; in LTR on the left = "prev" */}
             <button
               type="button"
-              onClick={handleNext}
+              onClick={isRtl ? handleNext : handlePrev}
               className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
             >
-              <ChevronRight className="w-4 h-4" />
+              <ChevronLeft className="w-4 h-4" />
             </button>
 
-            {/* Center: clickable label */}
+            {/* Centre: clickable label */}
             <button
               type="button"
               onClick={handleHeaderClick}
               className={`flex items-center gap-1.5 px-2 py-1 rounded-lg transition-all duration-150
-                text-sm font-semibold
-                ${view === "years"
-                  ? "text-gray-400 cursor-default"
-                  : "text-white hover:bg-white/10 hover:text-orange-300"
-                }`}
+                          text-sm font-semibold
+                          ${view === "years"
+                            ? "text-gray-400 cursor-default"
+                            : "text-white hover:bg-white/10 hover:text-orange-300"}`}
             >
               {headerLabel}
               {view !== "years" && (
                 <ChevronUp
                   className={`w-3.5 h-3.5 text-orange-400 transition-transform duration-200
-                    ${view === "months" ? "rotate-180" : ""}`}
+                              ${view === "months" ? "rotate-180" : ""}`}
                 />
               )}
             </button>
 
-            {/* Right: prev (RTL) */}
+            {/* In RTL visually on the right = "prev"; in LTR = "next" */}
             <button
               type="button"
-              onClick={handlePrev}
+              onClick={isRtl ? handlePrev : handleNext}
               className="p-1.5 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"
             >
-              <ChevronLeft className="w-4 h-4" />
+              <ChevronRight className="w-4 h-4" />
             </button>
           </div>
 
-          {/* ── Back breadcrumb (months / years view) ── */}
+          {/* ── Back breadcrumb ── */}
           <AnimatePresence>
             {view !== "days" && (
               <motion.div
@@ -270,10 +280,14 @@ export default function DatePicker({
                 <button
                   type="button"
                   onClick={handleBack}
-                  className="w-full flex items-center justify-center gap-1.5 py-1.5 text-xs text-orange-400 hover:text-orange-300 transition-colors"
+                  className="w-full flex items-center justify-center gap-1.5 py-1.5
+                             text-xs text-orange-400 hover:text-orange-300 transition-colors"
                 >
-                  <ChevronLeft className="w-3 h-3" />
-                  {view === "months" ? "اختر الشهر" : "اختر السنة"}
+                  {isRtl
+                    ? <ChevronRight className="w-3 h-3" />
+                    : <ChevronLeft  className="w-3 h-3" />
+                  }
+                  {backLabel}
                 </button>
               </motion.div>
             )}
@@ -286,14 +300,14 @@ export default function DatePicker({
             {view === "days" && (
               <motion.div
                 key="days"
-                initial={{ opacity: 0, x: 10 }}
+                initial={{ opacity: 0, x: isRtl ? -10 : 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
+                exit={{   opacity: 0, x: isRtl ?  10 : -10 }}
                 transition={{ duration: 0.15 }}
               >
                 {/* Day headers */}
                 <div className="grid grid-cols-7 px-3 pt-3 pb-1">
-                  {DAYS_AR.map((d) => (
+                  {dayHeaders.map((d) => (
                     <div key={d} className="text-center text-xs text-gray-500 font-medium py-1">
                       {d}
                     </div>
@@ -313,16 +327,14 @@ export default function DatePicker({
                         key={day}
                         type="button"
                         onClick={() => pick(day)}
-                        className={`
-                          flex items-center justify-center h-8 w-full rounded-lg text-sm
-                          transition-all duration-150 font-medium
-                          ${isSel
-                            ? "bg-gradient-to-b from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-orange-500/30"
-                            : isToday
-                              ? "bg-white/10 text-orange-400 ring-1 ring-orange-500/40"
-                              : "text-gray-300 hover:bg-white/10 hover:text-white"
-                          }
-                        `}
+                        className={`flex items-center justify-center h-8 w-full rounded-lg text-sm
+                                    transition-all duration-150 font-medium
+                                    ${isSel
+                                      ? "bg-gradient-to-b from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-orange-500/30"
+                                      : isToday
+                                        ? "bg-white/10 text-orange-400 ring-1 ring-orange-500/40"
+                                        : "text-gray-300 hover:bg-white/10 hover:text-white"
+                                    }`}
                       >
                         {day}
                       </button>
@@ -335,9 +347,10 @@ export default function DatePicker({
                   <button
                     type="button"
                     onClick={goToday}
-                    className="w-full text-center text-xs text-orange-400 hover:text-orange-300 transition-colors font-medium py-1"
+                    className="w-full text-center text-xs text-orange-400 hover:text-orange-300
+                               transition-colors font-medium py-1"
                   >
-                    اليوم — {formatDisplay(toStr(todayDate))}
+                    {todayLabel}
                   </button>
                 </div>
               </motion.div>
@@ -347,14 +360,14 @@ export default function DatePicker({
             {view === "months" && (
               <motion.div
                 key="months"
-                initial={{ opacity: 0, x: 10 }}
+                initial={{ opacity: 0, x: isRtl ? -10 : 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
+                exit={{   opacity: 0, x: isRtl ?  10 : -10 }}
                 transition={{ duration: 0.15 }}
                 className="grid grid-cols-3 gap-2 p-4"
               >
-                {MONTHS_AR.map((name, i) => {
-                  const isCurrent = selected
+                {monthNames.map((name, i) => {
+                  const isCurrent  = selected
                     ? selected.getFullYear() === year && selected.getMonth() === i
                     : false;
                   const isThisMonth =
@@ -364,15 +377,13 @@ export default function DatePicker({
                       key={name}
                       type="button"
                       onClick={() => pickMonth(i)}
-                      className={`
-                        py-2.5 rounded-xl text-sm font-medium transition-all duration-150
-                        ${isCurrent
-                          ? "bg-gradient-to-b from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-orange-500/30"
-                          : isThisMonth
-                            ? "bg-white/10 text-orange-400 ring-1 ring-orange-500/40"
-                            : "text-gray-300 hover:bg-white/10 hover:text-white"
-                        }
-                      `}
+                      className={`py-2.5 rounded-xl text-sm font-medium transition-all duration-150
+                                  ${isCurrent
+                                    ? "bg-gradient-to-b from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-orange-500/30"
+                                    : isThisMonth
+                                      ? "bg-white/10 text-orange-400 ring-1 ring-orange-500/40"
+                                      : "text-gray-300 hover:bg-white/10 hover:text-white"
+                                  }`}
                     >
                       {name}
                     </button>
@@ -385,29 +396,27 @@ export default function DatePicker({
             {view === "years" && (
               <motion.div
                 key="years"
-                initial={{ opacity: 0, x: 10 }}
+                initial={{ opacity: 0, x: isRtl ? -10 : 10 }}
                 animate={{ opacity: 1, x: 0 }}
-                exit={{ opacity: 0, x: -10 }}
+                exit={{   opacity: 0, x: isRtl ?  10 : -10 }}
                 transition={{ duration: 0.15 }}
                 className="grid grid-cols-3 gap-2 p-4"
               >
                 {years.map((y) => {
-                  const isCurrent = selected ? selected.getFullYear() === y : false;
+                  const isCurrent  = selected ? selected.getFullYear() === y : false;
                   const isThisYear = todayDate.getFullYear() === y;
                   return (
                     <button
                       key={y}
                       type="button"
                       onClick={() => pickYear(y)}
-                      className={`
-                        py-2.5 rounded-xl text-sm font-medium transition-all duration-150
-                        ${isCurrent
-                          ? "bg-gradient-to-b from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-orange-500/30"
-                          : isThisYear
-                            ? "bg-white/10 text-orange-400 ring-1 ring-orange-500/40"
-                            : "text-gray-300 hover:bg-white/10 hover:text-white"
-                        }
-                      `}
+                      className={`py-2.5 rounded-xl text-sm font-medium transition-all duration-150
+                                  ${isCurrent
+                                    ? "bg-gradient-to-b from-[#F97316] to-[#EA580C] text-white shadow-lg shadow-orange-500/30"
+                                    : isThisYear
+                                      ? "bg-white/10 text-orange-400 ring-1 ring-orange-500/40"
+                                      : "text-gray-300 hover:bg-white/10 hover:text-white"
+                                  }`}
                     >
                       {y}
                     </button>
@@ -423,21 +432,27 @@ export default function DatePicker({
   );
 
   return (
-    <div className="relative">
-      {label && <label className="block text-gray-400 text-sm mb-2">{label}</label>}
+    <div className="relative" dir={isRtl ? "rtl" : "ltr"}>
+      {label && (
+        <label className={`block text-gray-400 text-sm mb-2 ${isRtl ? "text-right" : "text-left"}`}>
+          {label}
+        </label>
+      )}
 
       <button
         ref={triggerRef}
         type="button"
         onClick={() => setOpen((o) => !o)}
-        className={`w-full flex items-center gap-3 bg-white/5 border ${
-          error ? "border-red-500/60" : open ? "border-orange-500/60" : "border-white/10"
-        } rounded-xl px-4 py-3 transition-all duration-200 hover:border-white/20
-          focus:outline-none focus:border-orange-500/60`}
+        className={`w-full flex items-center gap-3 bg-white/5 border
+                    ${error ? "border-red-500/60" : open ? "border-orange-500/60" : "border-white/10"}
+                    rounded-xl px-4 py-3 transition-all duration-200
+                    hover:border-white/20 focus:outline-none focus:border-orange-500/60
+                    ${isRtl ? "flex-row-reverse" : ""}`}
       >
         <Calendar className={`w-4 h-4 shrink-0 ${value ? "text-orange-400" : "text-gray-500"}`} />
-        <span className={`flex-1 text-sm text-left ${value ? "text-white" : "text-gray-500"}`}>
-          {value ? formatDisplay(value) : placeholder}
+        <span className={`flex-1 text-sm ${value ? "text-white" : "text-gray-500"}
+                          ${isRtl ? "text-right" : "text-left"}`}>
+          {value ? formatDisplay(value, lang) : resolvedPlaceholder}
         </span>
         <motion.svg
           animate={{ rotate: open ? 180 : 0 }}
@@ -449,7 +464,11 @@ export default function DatePicker({
         </motion.svg>
       </button>
 
-      {error && <p className="text-xs text-red-400 mt-1">{error}</p>}
+      {error && (
+        <p className={`text-xs text-red-400 mt-1 ${isRtl ? "text-right" : "text-left"}`}>
+          {error}
+        </p>
+      )}
 
       {typeof document !== "undefined" && createPortal(dropdown, document.body)}
     </div>

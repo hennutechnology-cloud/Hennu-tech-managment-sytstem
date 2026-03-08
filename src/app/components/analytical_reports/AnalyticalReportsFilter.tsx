@@ -1,5 +1,5 @@
 // ============================================================
-// AnalyticalReportsFilter.tsx
+// AnalyticalReportsFilter.tsx — responsive
 // ============================================================
 import GlassCard    from "../../core/shared/components/GlassCard";
 import DatePicker   from "../../core/shared/components/DatePicker";
@@ -16,20 +16,25 @@ export default function AnalyticalReportsFilter({ lang }: Props) {
   const { dateRange, setDateRange, reportType, setReportType, applyFilter, loading } =
     useAnalyticalReports();
 
+  const isRtl   = lang === "ar";
+  const labelCls = `block text-gray-400 text-sm mb-2 ${isRtl ? "text-right" : "text-left"}`;
+  const inputCls = `w-full bg-white/5 border border-white/10 rounded-xl px-4 py-2.5 sm:py-3
+                    text-white focus:outline-none focus:border-[#F97316] transition-colors
+                    cursor-pointer text-sm sm:text-base`;
+
   return (
-    <GlassCard>
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+    <GlassCard className="p-4 sm:p-6">
+      {/* Grid: 1 col → 2 col → 4 col */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
 
         {/* Report type */}
         <div>
-          <label className="block text-gray-400 text-sm mb-2">
-            {tAR(lang, "reportTypeLabel")}
-          </label>
+          <label className={labelCls}>{tAR(lang, "reportTypeLabel")}</label>
           <select
             value={reportType}
+            dir={isRtl ? "rtl" : "ltr"}
             onChange={(e) => setReportType(e.target.value as ReportType)}
-            className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 text-white
-              focus:outline-none focus:border-[#F97316] transition-colors cursor-pointer"
+            className={inputCls}
           >
             {REPORT_TYPE_VALUES.map((value) => (
               <option key={value} value={value} className="bg-[#0f1117]">
@@ -55,20 +60,22 @@ export default function AnalyticalReportsFilter({ lang }: Props) {
           onChange={(v) => setDateRange({ ...dateRange, to: v })}
         />
 
-        {/* Filter button */}
+        {/* Filter button — aligns to bottom of cell on desktop */}
         <div className="flex items-end">
           <button
             onClick={applyFilter}
             disabled={loading}
-            className="w-full px-6 py-3 bg-white/10 hover:bg-white/20 text-white rounded-xl
-              transition-all flex items-center justify-center gap-2
-              disabled:opacity-40 disabled:cursor-not-allowed"
+            className={`w-full px-4 py-2.5 sm:py-3 bg-white/10 hover:bg-white/20 text-white
+                        rounded-xl transition-all flex items-center justify-center gap-2
+                        text-sm sm:text-base
+                        disabled:opacity-40 disabled:cursor-not-allowed
+                        ${isRtl ? "flex-row-reverse" : ""}`}
           >
             {loading
               ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-              : <Filter className="w-5 h-5" />
+              : <Filter className="w-4 h-4 sm:w-5 sm:h-5" />
             }
-            {tAR(lang, "filter")}
+            <span>{tAR(lang, "filter")}</span>
           </button>
         </div>
 

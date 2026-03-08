@@ -2,6 +2,8 @@ import { createBrowserRouter } from "react-router";
 import Layout from "./components/Layout";
 import Dashboard from "./pages/Dashboard";
 import Projects from "./pages/Projects";
+import BOQComparison from "./pages/BOQComparison";
+import BOQManagement from "./pages/BOQManagement";
 import ChartOfAccounts from "./pages/ChartOfAccounts";
 import JournalEntries from "./pages/JournalEntries";
 import GeneralLedger from "./pages/GeneralLedger";
@@ -20,6 +22,8 @@ export const router = createBrowserRouter([
     children: [
       { index: true, Component: Dashboard },
       { path: "projects", Component: Projects },
+      { path: "boq-comparison", Component: BOQComparison },
+      { path: "boq-management", Component: BOQManagement },
       { path: "chart-of-accounts", Component: ChartOfAccounts },
       { path: "journal-entries", Component: JournalEntries },
       { path: "general-ledger", Component: GeneralLedger },

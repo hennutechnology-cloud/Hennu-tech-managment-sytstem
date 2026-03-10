@@ -1,10 +1,10 @@
 // ============================================================
-// ProjectStats.tsx — Responsive
+// ProjectStats.tsx
 // ============================================================
 import { Building2, Clock, CheckCircle2, AlertTriangle } from "lucide-react";
-import { motion } from "motion/react";
-import GlassCard  from "../../core/shared/components/GlassCard";
-import { tProj, dirAttr } from "../../core/i18n/projects.i18n";
+import { motion }              from "motion/react";
+import GlassCard               from "../../core/shared/components/GlassCard";
+import { tProj, dirAttr }      from "../../core/i18n/projects.i18n";
 import type { ProjectStatsProps } from "../../core/models/projects.types";
 
 export default function ProjectStats({ stats, lang }: ProjectStatsProps) {

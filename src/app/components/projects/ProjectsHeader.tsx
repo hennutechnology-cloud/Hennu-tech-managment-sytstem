@@ -1,8 +1,8 @@
 // ============================================================
-// ProjectsHeader.tsx — Responsive
+// ProjectsHeader.tsx
 // ============================================================
-import { Plus } from "lucide-react";
-import { tProj, dirAttr } from "../../core/i18n/projects.i18n";
+import { Plus }                    from "lucide-react";
+import { tProj, dirAttr }          from "../../core/i18n/projects.i18n";
 import type { ProjectsHeaderProps } from "../../core/models/projects.types";
 
 export default function ProjectsHeader({ lang, onAddProject }: ProjectsHeaderProps) {

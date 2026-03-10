@@ -1,275 +1,502 @@
 // ============================================================
-// ProjectModal.tsx — Responsive
+// ProjectModal.tsx — Add / View / Edit project
+// mode="add"  → blank form + optional inline contract step
+// mode="view" → read-only detail with Edit button
+// mode="edit" → pre-filled form (no contract step)
 // ============================================================
-import { useEffect, useState }     from "react";
+import { useState, useEffect }     from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { X, Save, Plus, Pencil, AlertCircle } from "lucide-react";
-import { tProj, resolveRiskBadge, formatNum, dirAttr } from "../../core/i18n/projects.i18n";
+import { X, Pencil, AlertCircle, ChevronRight, ChevronLeft, FileText } from "lucide-react";
+import { tProj, dirAttr, flip, resolveRiskBadge, formatNum } from "../../core/i18n/projects.i18n";
+import { tContract, resolveContractStatusBadge } from "../../core/i18n/contracts.i18n";
 import type {
   ProjectModalProps, ProjectFormValues, ProjectFormErrors, RiskLevel,
 } from "../../core/models/projects.types";
+import type { ContractFormValues, ContractFormErrors, ContractStatus } from "../../core/models/contracts.types";
 
-const EMPTY_FORM: ProjectFormValues = {
-  name: "", budget: "", actualCost: "", progress: "", profitMargin: "", riskLevel: "low",
-};
+// ── Validation ────────────────────────────────────────────────
+function validateProject(v: ProjectFormValues, tFn: (k: any) => string): ProjectFormErrors {
+  const e: ProjectFormErrors = {};
+  if (!v.name.trim())                                      e.name         = tFn("errRequired");
+  if (!v.budget || isNaN(+v.budget) || +v.budget <= 0)    e.budget       = tFn("errPositiveNumber");
+  if (!v.actualCost || isNaN(+v.actualCost))               e.actualCost   = tFn("errPositiveNumber");
+  const prog = +v.progress;
+  if (isNaN(prog) || prog < 0 || prog > 100)               e.progress     = tFn("errRange0100");
+  const pm = +v.profitMargin;
+  if (isNaN(pm) || pm < -100 || pm > 100)                  e.profitMargin = tFn("errRange0100");
+  return e;
+}
 
-function toForm(p: NonNullable<ProjectModalProps["project"]>): ProjectFormValues {
+function validateContract(v: ContractFormValues, tFn: (k: any) => string): ContractFormErrors {
+  const e: ContractFormErrors = {};
+  if (!v.contractorName.trim())   e.contractorName   = tFn("errRequired");
+  if (!v.scopeDescription.trim()) e.scopeDescription = tFn("errRequired");
+  if (!v.originalValue || isNaN(+v.originalValue) || +v.originalValue <= 0)
+    e.originalValue = tFn("errPositiveNumber");
+  if (v.advancePayment && (isNaN(+v.advancePayment) || +v.advancePayment < 0))
+    e.advancePayment = tFn("errPositiveNumber");
+  const ret = +v.retentionPercent;
+  if (isNaN(ret) || ret < 0 || ret > 100) e.retentionPercent = tFn("errRetentionRange");
+  return e;
+}
+
+function toFormValues(project: import("../../core/models/projects.types").Project): ProjectFormValues {
   return {
-    name:         p.name,
-    budget:       String(p.budget),
-    actualCost:   String(p.actualCost),
-    progress:     String(p.progress),
-    profitMargin: String(p.profitMargin),
-    riskLevel:    p.riskLevel,
+    name:         project.name,
+    budget:       String(project.budget),
+    actualCost:   String(project.actualCost),
+    progress:     String(project.progress),
+    profitMargin: String(project.profitMargin),
+    riskLevel:    project.riskLevel,
   };
 }
 
-function validate(values: ProjectFormValues, lang: Parameters<typeof tProj>[0]): ProjectFormErrors {
-  const errors: ProjectFormErrors = {};
-  if (!values.name.trim())                              errors.name         = tProj(lang, "errNameRequired");
-  if (!values.budget)                                   errors.budget       = tProj(lang, "errBudgetRequired");
-  else if (isNaN(+values.budget) || +values.budget < 0) errors.budget       = tProj(lang, "errBudgetInvalid");
-  const prog = +values.progress;
-  if (isNaN(prog) || prog < 0 || prog > 100)            errors.progress     = tProj(lang, "errProgressRange");
-  if (isNaN(+values.profitMargin))                      errors.profitMargin = tProj(lang, "errMarginInvalid");
-  return errors;
+const today = new Date();
+const EMPTY_PROJECT: ProjectFormValues = {
+  name: "", budget: "", actualCost: "", progress: "0", profitMargin: "0", riskLevel: "medium",
+};
+
+const EMPTY_CONTRACT: ContractFormValues = {
+  contractorName: "", scopeDescription: "", status: "active",
+  startDay:   String(today.getDate()),
+  startMonth: String(today.getMonth() + 1),
+  startYear:  String(today.getFullYear()),
+  endDay:     String(today.getDate()),
+  endMonth:   String(today.getMonth() + 1),
+  endYear:    String(today.getFullYear() + 1),
+  originalValue: "", advancePayment: "", retentionPercent: "5", penalties: "0",
+};
+
+// ── Sub-components ────────────────────────────────────────────
+function FieldError({ msg }: { msg?: string }) {
+  if (!msg) return null;
+  return (
+    <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
+      className="flex items-center gap-1.5 text-xs text-red-400 mt-1">
+      <AlertCircle className="w-3.5 h-3.5 shrink-0" />{msg}
+    </motion.p>
+  );
 }
 
-function Field({ label, error, children }: { label: string; error?: string; children: React.ReactNode }) {
+const inputCls = (err?: string) =>
+  `w-full bg-white/5 border ${err ? "border-red-500/60" : "border-white/10"} rounded-xl px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/30 transition-all`;
+
+function DateFields({ label, day, month, year, error, onChange, lang }: {
+  label: string; day: string; month: string; year: string; error?: string;
+  onChange: (f: "day" | "month" | "year", v: string) => void; lang: "ar" | "en";
+}) {
+  const tc = (k: any) => tContract(lang, k);
   return (
-    <div className="space-y-1.5">
-      <label className="block text-sm font-medium text-gray-300">{label}</label>
-      {children}
-      <AnimatePresence>
-        {error && (
-          <motion.p initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -4 }}
-            className="flex items-center gap-1.5 text-xs text-red-400">
-            <AlertCircle className="w-3.5 h-3.5 shrink-0" />{error}
-          </motion.p>
-        )}
-      </AnimatePresence>
+    <div>
+      <p className="text-sm font-medium text-gray-300 mb-1.5">{label}</p>
+      <div className="grid grid-cols-3 gap-2">
+        {([ ["day", day, 1, 31], ["month", month, 1, 12], ["year", year, 2000, 2100] ] as const).map(([f, val, mn, mx]) => (
+          <div key={f}>
+            <p className="text-[10px] text-gray-500 mb-1">{tc(`field${f.charAt(0).toUpperCase() + f.slice(1)}` as any)}</p>
+            <input type="number" dir="ltr" min={mn} max={mx} value={val}
+              onChange={(e) => onChange(f as any, e.target.value)}
+              className={inputCls(error)} />
+          </div>
+        ))}
+      </div>
+      <AnimatePresence><FieldError msg={error} /></AnimatePresence>
     </div>
   );
 }
 
-const inputCls = (hasError: boolean, extra = "") =>
-  `w-full bg-white/5 border ${hasError ? "border-red-500/60" : "border-white/10"} rounded-xl px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/30 transition-all duration-200 ${extra}`;
+// ── View sub-panel ────────────────────────────────────────────
+function ViewBody({ project, lang }: { project: NonNullable<ProjectModalProps["project"]>; lang: "ar" | "en" }) {
+  const t    = (k: any) => tProj(lang, k);
+  const fmt  = (n: number) => formatNum(n, lang);
+  const cur  = t("currency");
+  const risk = resolveRiskBadge(lang, project.riskLevel);
+  const variance = project.budget - project.actualCost;
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-3">
+        {[
+          { label: t("labelBudget"),       value: `${fmt(project.budget)} ${cur}`,     cls: "text-orange-400"  },
+          { label: t("labelActualCost"),   value: `${fmt(project.actualCost)} ${cur}`, cls: "text-blue-400"    },
+          { label: t("labelProfitMargin"), value: `${project.profitMargin}%`,           cls: "text-emerald-400" },
+          { label: t("labelVariance"),     value: `${fmt(Math.abs(variance))} ${cur}`, cls: variance >= 0 ? "text-emerald-400" : "text-red-400" },
+        ].map(({ label, value, cls }) => (
+          <div key={label} className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
+            <p className="text-xs text-gray-400 mb-1">{label}</p>
+            <p className={`text-base font-bold ${cls}`}>{value}</p>
+          </div>
+        ))}
+      </div>
+      <div className="p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs text-gray-400">{t("labelProgress")}</span>
+          <span className="text-xs font-bold text-white">{project.progress}%</span>
+        </div>
+        <div className="h-2 bg-white/10 rounded-full overflow-hidden">
+          <div className="h-full bg-gradient-to-r from-[#F97316] to-[#10B981] rounded-full"
+            style={{ width: `${project.progress}%` }} />
+        </div>
+      </div>
+      <div className="flex items-center justify-between p-3 rounded-xl bg-white/[0.04] border border-white/[0.07]">
+        <span className="text-xs text-gray-400">{t("labelRisk")}</span>
+        <span className={`px-2.5 py-1 rounded-lg border text-xs ${risk.className}`}>{risk.label}</span>
+      </div>
+    </div>
+  );
+}
 
-export default function ProjectModal({
-  isOpen, mode: initialMode, project, lang, onClose, onSave, onEdit,
-}: ProjectModalProps) {
-  const [mode,   setMode]   = useState(initialMode);
-  const [values, setValues] = useState<ProjectFormValues>(EMPTY_FORM);
-  const [errors, setErrors] = useState<ProjectFormErrors>({});
-  const [saving, setSaving] = useState(false);
+// ── Project form step ─────────────────────────────────────────
+function ProjectFormStep({ values, errors, lang, onChange }: {
+  values: ProjectFormValues;
+  errors: ProjectFormErrors;
+  lang: "ar" | "en";
+  onChange: (field: keyof ProjectFormValues, val: string) => void;
+}) {
+  const t           = (k: any) => tProj(lang, k);
+  const riskOptions: RiskLevel[] = ["low", "medium", "high"];
 
-  useEffect(() => { setMode(initialMode); }, [initialMode]);
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldName")}</label>
+        <input type="text" value={values.name} onChange={(e) => onChange("name", e.target.value)}
+          placeholder={t("fieldNamePH")} className={inputCls(errors.name)} />
+        <AnimatePresence><FieldError msg={errors.name} /></AnimatePresence>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldBudget")}</label>
+          <input type="number" dir="ltr" min={0} value={values.budget} onChange={(e) => onChange("budget", e.target.value)} className={inputCls(errors.budget)} />
+          <AnimatePresence><FieldError msg={errors.budget} /></AnimatePresence>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldActualCost")}</label>
+          <input type="number" dir="ltr" min={0} value={values.actualCost} onChange={(e) => onChange("actualCost", e.target.value)} className={inputCls(errors.actualCost)} />
+          <AnimatePresence><FieldError msg={errors.actualCost} /></AnimatePresence>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldProgress")}</label>
+          <input type="number" dir="ltr" min={0} max={100} value={values.progress} onChange={(e) => onChange("progress", e.target.value)} className={inputCls(errors.progress)} />
+          <AnimatePresence><FieldError msg={errors.progress} /></AnimatePresence>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldProfitMargin")}</label>
+          <input type="number" dir="ltr" min={-100} max={100} step={0.1} value={values.profitMargin} onChange={(e) => onChange("profitMargin", e.target.value)} className={inputCls(errors.profitMargin)} />
+          <AnimatePresence><FieldError msg={errors.profitMargin} /></AnimatePresence>
+        </div>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldRisk")}</label>
+        <div className="flex gap-2">
+          {riskOptions.map((r) => {
+            const b = resolveRiskBadge(lang, r);
+            return (
+              <button key={r} onClick={() => onChange("riskLevel", r)}
+                className={`flex-1 py-2 rounded-xl border text-xs font-medium transition-all ${
+                  values.riskLevel === r ? b.className + " ring-1 ring-offset-1 ring-offset-[#0f1117] ring-current"
+                                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                }`}>{b.label}</button>
+            );
+          })}
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Contract form step ────────────────────────────────────────
+function ContractFormStep({ values, errors, lang, onChange }: {
+  values: ContractFormValues;
+  errors: ContractFormErrors;
+  lang: "ar" | "en";
+  onChange: (field: keyof ContractFormValues, val: string) => void;
+}) {
+  const tc = (k: any) => tContract(lang, k);
+  const statusOptions: ContractStatus[] = ["active", "suspended", "terminated", "completed"];
+
+  return (
+    <div className="space-y-4">
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1.5">{tc("fieldContractorName")}</label>
+        <input type="text" value={values.contractorName}
+          onChange={(e) => onChange("contractorName", e.target.value)}
+          placeholder={tc("fieldContractorPlaceholder")} className={inputCls(errors.contractorName)} />
+        <AnimatePresence><FieldError msg={errors.contractorName} /></AnimatePresence>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1.5">{tc("fieldScope")}</label>
+        <textarea rows={2} value={values.scopeDescription}
+          onChange={(e) => onChange("scopeDescription", e.target.value)}
+          placeholder={tc("fieldScopePlaceholder")}
+          className={`${inputCls(errors.scopeDescription)} resize-none`} />
+        <AnimatePresence><FieldError msg={errors.scopeDescription} /></AnimatePresence>
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-300 mb-1.5">{tc("fieldContractStatus")}</label>
+        <div className="flex gap-2 flex-wrap">
+          {statusOptions.map((s) => {
+            const b = resolveContractStatusBadge(lang, s);
+            return (
+              <button key={s} onClick={() => onChange("status", s)}
+                className={`flex-1 min-w-[80px] py-2 rounded-xl border text-xs font-medium transition-all ${
+                  values.status === s ? b.className + " ring-1 ring-offset-1 ring-offset-[#0f1117] ring-current"
+                                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
+                }`}>{b.label}</button>
+            );
+          })}
+        </div>
+      </div>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <DateFields label={tc("fieldStartDate")}
+          day={values.startDay} month={values.startMonth} year={values.startYear}
+          error={errors.startDate}
+          onChange={(f, v) => onChange(`start${f.charAt(0).toUpperCase() + f.slice(1)}` as any, v)}
+          lang={lang} />
+        <DateFields label={tc("fieldEndDate")}
+          day={values.endDay} month={values.endMonth} year={values.endYear}
+          error={errors.endDate}
+          onChange={(f, v) => onChange(`end${f.charAt(0).toUpperCase() + f.slice(1)}` as any, v)}
+          lang={lang} />
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{tc("fieldOriginalValue")}</label>
+          <input type="number" dir="ltr" min={0} value={values.originalValue}
+            onChange={(e) => onChange("originalValue", e.target.value)} className={inputCls(errors.originalValue)} />
+          <AnimatePresence><FieldError msg={errors.originalValue} /></AnimatePresence>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{tc("fieldAdvancePayment")}</label>
+          <input type="number" dir="ltr" min={0} value={values.advancePayment}
+            onChange={(e) => onChange("advancePayment", e.target.value)} className={inputCls(errors.advancePayment)} />
+          <AnimatePresence><FieldError msg={errors.advancePayment} /></AnimatePresence>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{tc("fieldRetentionPercent")}</label>
+          <input type="number" dir="ltr" min={0} max={100} step={0.5} value={values.retentionPercent}
+            onChange={(e) => onChange("retentionPercent", e.target.value)} className={inputCls(errors.retentionPercent)} />
+          <AnimatePresence><FieldError msg={errors.retentionPercent} /></AnimatePresence>
+        </div>
+        <div>
+          <label className="block text-sm font-medium text-gray-300 mb-1.5">{tc("fieldPenalties")}</label>
+          <input type="number" dir="ltr" min={0} value={values.penalties}
+            onChange={(e) => onChange("penalties", e.target.value)} className={inputCls()} />
+        </div>
+      </div>
+    </div>
+  );
+}
+
+// ── Main component ────────────────────────────────────────────
+export default function ProjectModal({ isOpen, mode, project, lang, onClose, onSave, onEdit }: ProjectModalProps) {
+  const [projValues,   setProjValues]   = useState<ProjectFormValues>(EMPTY_PROJECT);
+  const [projErrors,   setProjErrors]   = useState<ProjectFormErrors>({});
+  const [contractVals, setContractVals] = useState<ContractFormValues>(EMPTY_CONTRACT);
+  const [contractErrs, setContractErrs] = useState<ContractFormErrors>({});
+  const [addContract,  setAddContract]  = useState(false);
+  const [step,         setStep]         = useState<"project" | "contract">("project");
+  const [saving,       setSaving]       = useState(false);
+
   useEffect(() => {
-    if (project && (initialMode === "edit" || initialMode === "view")) setValues(toForm(project));
-    else setValues(EMPTY_FORM);
-    setErrors({});
-  }, [project, initialMode, isOpen]);
+    if (!isOpen) return;
+    if (mode === "edit" && project) setProjValues(toFormValues(project));
+    else if (mode === "add")        setProjValues(EMPTY_PROJECT);
+    setContractVals(EMPTY_CONTRACT);
+    setProjErrors({});
+    setContractErrs({});
+    setAddContract(false);
+    setStep("project");
+  }, [isOpen, mode, project]);
 
-  if (!isOpen) return null;
+  const t   = (k: any) => tProj(lang, k);
+  const tc  = (k: any) => tContract(lang, k);
+  const dir = dirAttr(lang);
 
-  const isView     = mode === "view";
-  const isAdd      = mode === "add";
-  const isReadOnly = isView;
+  const setProj  = (field: keyof ProjectFormValues, val: string) => {
+    setProjValues((v) => ({ ...v, [field]: val }));
+    setProjErrors((e) => ({ ...e, [field]: undefined }));
+  };
 
-  const set = (field: keyof ProjectFormValues, val: string) => {
-    setValues((v) => ({ ...v, [field]: val }));
-    setErrors((e) => ({ ...e, [field]: undefined }));
+  const setCont  = (field: keyof ContractFormValues, val: string) => {
+    setContractVals((v) => ({ ...v, [field]: val }));
+    setContractErrs((e) => ({ ...e, [field]: undefined, startDate: undefined, endDate: undefined }));
+  };
+
+  const handleNext = () => {
+    const errs = validateProject(projValues, t);
+    if (Object.keys(errs).length) { setProjErrors(errs); return; }
+    setStep("contract");
   };
 
   const handleSave = async () => {
-    const errs = validate(values, lang);
-    if (Object.keys(errs).length) { setErrors(errs); return; }
+    if (step === "project" && addContract && mode === "add") {
+      // Validate project first then move to contract step
+      handleNext();
+      return;
+    }
+
+    // Validate project
+    const pErrs = validateProject(projValues, t);
+    if (Object.keys(pErrs).length) { setProjErrors(pErrs); setStep("project"); return; }
+
+    // Validate contract if adding
+    if (addContract && mode === "add") {
+      const cErrs = validateContract(contractVals, tc);
+      if (Object.keys(cErrs).length) { setContractErrs(cErrs); return; }
+    }
+
     setSaving(true);
-    try { await onSave(values); onClose(); }
-    finally { setSaving(false); }
+    try {
+      await onSave({
+        ...projValues,
+        addContract: addContract && mode === "add",
+        contractValues: addContract && mode === "add" ? contractVals : undefined,
+      });
+      onClose();
+    } finally { setSaving(false); }
   };
 
-  const handleSwitchToEdit = () => {
-    if (project) onEdit(project);
-    setMode("edit");
-  };
+  const isView = mode === "view";
 
-  const riskOptions: RiskLevel[] = ["low", "medium", "high"];
-
-  const title = isAdd ? tProj(lang, "modalAddTitle") : isView ? tProj(lang, "modalViewTitle") : tProj(lang, "modalEditTitle");
-  const subtitle = isAdd ? tProj(lang, "modalAddSubtitle") : project?.name ?? "";
-
-  // ── Shared body fields ─────────────────────────────────────
-  const formBody = (
-    <div dir={dirAttr(lang)} className="space-y-4 sm:space-y-5">
-      {/* View-mode risk + progress summary */}
-      {isView && project && (
-        <div className="flex items-center gap-4 p-3 bg-white/5 rounded-xl border border-white/10">
-          <div className="flex-1">
-            <p className="text-gray-400 text-xs mb-1.5">{tProj(lang, "colRisk")}</p>
-            <span className={`px-3 py-1 rounded-lg border text-xs ${resolveRiskBadge(lang, project.riskLevel).className}`}>
-              {resolveRiskBadge(lang, project.riskLevel).label}
-            </span>
-          </div>
-          <div className="flex-1">
-            <p className="text-gray-400 text-xs mb-1.5">{tProj(lang, "colProgress")}</p>
-            <div className="flex items-center gap-2">
-              <div className="flex-1 bg-gray-700 rounded-full h-1.5">
-                <div className="bg-gradient-to-l from-[#F97316] to-[#EA580C] h-full rounded-full" style={{ width: `${project.progress}%` }} />
-              </div>
-              <span className="text-white text-xs font-medium">{project.progress}%</span>
+  const formBody = isView && project ? (
+    <ViewBody project={project} lang={lang} />
+  ) : mode === "add" && step === "contract" ? (
+    <div dir={dir}>
+      <div className="mb-4 p-3 rounded-xl bg-orange-500/10 border border-orange-500/20">
+        <p className="text-xs text-orange-400">{tc("addContractSubtitle")}</p>
+      </div>
+      <ContractFormStep values={contractVals} errors={contractErrs} lang={lang} onChange={setCont} />
+    </div>
+  ) : (
+    <div dir={dir} className="space-y-4">
+      <ProjectFormStep values={projValues} errors={projErrors} lang={lang} onChange={setProj} />
+      {mode === "add" && (
+        <div className="pt-3 border-t border-white/10">
+          <button
+            onClick={() => setAddContract((v) => !v)}
+            className={`w-full flex items-center gap-3 p-3 rounded-xl border transition-all ${
+              addContract
+                ? "border-orange-500/50 bg-orange-500/10"
+                : "border-white/10 hover:border-white/20 bg-white/[0.03]"
+            }`}
+          >
+            <div className={`w-5 h-5 rounded border flex items-center justify-center shrink-0 transition-all ${
+              addContract ? "bg-orange-500 border-orange-500" : "border-white/30"
+            }`}>
+              {addContract && <span className="text-white text-xs font-bold">✓</span>}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Name */}
-      <Field label={tProj(lang, "fieldName")} error={errors.name}>
-        {isReadOnly
-          ? <p className={inputCls(false, "opacity-60 cursor-default")}>{values.name}</p>
-          : <input type="text" value={values.name} onChange={(e) => set("name", e.target.value)}
-              placeholder={tProj(lang, "fieldNamePlaceholder")} className={inputCls(!!errors.name)} />}
-      </Field>
-
-      {/* Budget + Actual Cost */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        {(["budget", "actualCost"] as const).map((field) => (
-          <Field key={field} label={tProj(lang, field === "budget" ? "fieldBudget" : "fieldActualCost")} error={errors[field]}>
-            {isReadOnly
-              ? <p className={inputCls(false, "opacity-60 cursor-default")}>{formatNum(+values[field] || 0, lang)}</p>
-              : <input type="number" dir="ltr" min={0} value={values[field]}
-                  onChange={(e) => set(field, e.target.value)} className={inputCls(!!errors[field])} />}
-          </Field>
-        ))}
-      </div>
-
-      {/* Progress + Profit Margin */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
-        {(["progress", "profitMargin"] as const).map((field) => (
-          <Field key={field} label={tProj(lang, field === "progress" ? "fieldProgress" : "fieldProfitMargin")} error={errors[field]}>
-            {isReadOnly
-              ? <p className={inputCls(false, "opacity-60 cursor-default")}>{values[field]}%</p>
-              : <input type="number" dir="ltr" step="0.1" min={0}
-                  max={field === "progress" ? 100 : undefined}
-                  value={values[field]} onChange={(e) => set(field, e.target.value)}
-                  className={inputCls(!!errors[field])} />}
-          </Field>
-        ))}
-      </div>
-
-      {/* Risk Level */}
-      <Field label={tProj(lang, "fieldRisk")}>
-        {isReadOnly
-          ? <span className={`inline-block px-3 py-1.5 rounded-lg border text-sm ${resolveRiskBadge(lang, values.riskLevel).className}`}>
-              {resolveRiskBadge(lang, values.riskLevel).label}
+            <FileText className={`w-4 h-4 ${addContract ? "text-orange-400" : "text-gray-400"}`} />
+            <span className={`text-sm ${addContract ? "text-orange-300" : "text-gray-300"}`}>
+              {tc("addContract")}
             </span>
-          : <div className="flex gap-2">
-              {riskOptions.map((r) => {
-                const b = resolveRiskBadge(lang, r);
-                const selected = values.riskLevel === r;
-                return (
-                  <button key={r} onClick={() => set("riskLevel", r)}
-                    className={`flex-1 py-2 rounded-xl border text-sm font-medium transition-all ${
-                      selected
-                        ? b.className + " ring-1 ring-offset-1 ring-offset-[#0f1117] ring-current"
-                        : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                    }`}>
-                    {b.label}
-                  </button>
-                );
-              })}
-            </div>}
-      </Field>
-    </div>
-  );
-
-  // ── Shared footer ──────────────────────────────────────────
-  const footerActions = (
-    <div className="flex items-center justify-end gap-3">
-      <button onClick={onClose}
-        className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
-        {isView ? tProj(lang, "close") : tProj(lang, "cancel")}
-      </button>
-      {!isView && (
-        <button onClick={handleSave} disabled={saving}
-          className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-l from-[#F97316] to-[#EA580C] text-white text-sm font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-orange-500/30 transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-          {saving
-            ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-            : isAdd ? <Plus className="w-4 h-4" /> : <Save className="w-4 h-4" />}
-          {saving ? tProj(lang, "saving") : isAdd ? tProj(lang, "addBtn") : tProj(lang, "save")}
-        </button>
+          </button>
+        </div>
       )}
     </div>
   );
 
-  // ── Shared header content ──────────────────────────────────
-  const headerContent = (
-    <>
-      <div>
-        <div className="flex items-center gap-2">
-          <h2 className="text-base sm:text-lg font-bold text-white">{title}</h2>
-          {isView && (
-            <button onClick={handleSwitchToEdit}
-              className="flex items-center gap-1 px-2 py-1 bg-amber-500/20 hover:bg-amber-500/30 text-amber-400 rounded-lg transition-colors text-xs">
-              <Pencil className="w-3 h-3" />{tProj(lang, "edit")}
-            </button>
-          )}
-        </div>
-        <p className="text-xs text-gray-400 mt-0.5">{subtitle}</p>
+  const isContractStep = mode === "add" && step === "contract";
+
+  const header = (
+    <div className="flex items-center justify-between px-5 sm:px-6 py-4 border-b border-white/10 bg-gradient-to-l from-orange-500/10 to-transparent shrink-0">
+      <div dir={dir}>
+        <h2 className="text-base sm:text-lg font-bold text-white">
+          {mode === "add"
+            ? (isContractStep ? tc("addContractTitle") : t("addProject"))
+            : mode === "edit" ? t("editProject") : t("viewProject")}
+        </h2>
+        {mode === "add" && (
+          <div className="flex items-center gap-1.5 mt-1">
+            <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+              !isContractStep ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-white/5 text-gray-500 border-white/10"
+            }`}>1 {t("fieldName") ? "•" : ""} {t("addProject")}</span>
+            {addContract && (
+              <>
+                <span className="text-gray-600 text-[10px]">→</span>
+                <span className={`text-[10px] px-2 py-0.5 rounded-full border ${
+                  isContractStep ? "bg-orange-500/20 text-orange-400 border-orange-500/30" : "bg-white/5 text-gray-500 border-white/10"
+                }`}>2 • {tc("addContract")}</span>
+              </>
+            )}
+          </div>
+        )}
+        {project && mode !== "add" && <p className="text-xs text-orange-400 mt-0.5 font-mono">{project.name}</p>}
       </div>
       <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white">
         <X className="w-5 h-5" />
       </button>
-    </>
+    </div>
+  );
+
+  const BackIcon = lang === "ar" ? ChevronRight : ChevronLeft;
+
+  const footer = (
+    <div dir={dir} className={`flex items-center gap-3 ${flip(lang, "justify-end", "justify-start")}`}>
+      {isContractStep ? (
+        <button onClick={() => setStep("project")}
+          className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-sm transition-all flex items-center justify-center gap-1.5">
+          <BackIcon className="w-4 h-4" />{t("cancel") /* reuse as Back */}
+        </button>
+      ) : (
+        <button onClick={onClose}
+          className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 text-sm transition-all">
+          {t("cancel")}
+        </button>
+      )}
+      {isView ? (
+        <button onClick={() => onEdit(project!)}
+          className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-white/10 hover:bg-white/15 text-white text-sm font-medium flex items-center justify-center gap-2 transition-all">
+          <Pencil className="w-4 h-4" />{t("edit")}
+        </button>
+      ) : mode === "add" && !isContractStep && addContract ? (
+        <button onClick={handleNext}
+          className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-l from-[#F97316] to-[#EA580C] text-white text-sm font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-orange-500/30 transition-all">
+          {lang === "ar" ? <ChevronLeft className="w-4 h-4" /> : <ChevronRight className="w-4 h-4" />}
+          {tc("addContract")}
+        </button>
+      ) : (
+        <button onClick={handleSave} disabled={saving}
+          className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-l from-[#F97316] to-[#EA580C] text-white text-sm font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-orange-500/30 transition-all disabled:opacity-50">
+          {saving && <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+          {saving ? t("saving") : t("save")}
+        </button>
+      )}
+    </div>
   );
 
   return (
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div key="proj-backdrop"
+          <motion.div key="pm-backdrop"
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose}
-            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
+            onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-40" />
 
-          {/* Mobile: bottom sheet */}
-          <motion.div key="proj-mobile"
-            dir={dirAttr(lang)}
+          {/* Mobile */}
+          <motion.div key="pm-mobile" dir={dir}
             initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
             transition={{ type: "spring", stiffness: 300, damping: 30 }}
             className="sm:hidden fixed inset-x-0 bottom-0 z-50 bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl max-h-[96dvh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="flex justify-center pt-3 pb-1 shrink-0">
-              <div className="w-10 h-1 rounded-full bg-white/20" />
-            </div>
-            <div className="flex items-center justify-between px-5 py-3 border-b border-white/10 bg-gradient-to-l from-orange-500/10 to-transparent shrink-0">
-              {headerContent}
-            </div>
+            onClick={(e) => e.stopPropagation()}>
+            <div className="h-1 w-full bg-gradient-to-r from-[#F97316] to-[#EA580C]" />
+            <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full bg-white/20" /></div>
+            {header}
             <div className="overflow-y-auto flex-1 px-5 py-5">{formBody}</div>
-            <div className="px-5 py-4 border-t border-white/10 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">
-              {footerActions}
-            </div>
+            <div className="px-5 py-4 border-t border-white/10 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>
           </motion.div>
 
-          {/* sm+: centered dialog */}
-          <motion.div key="proj-modal"
-            dir={dirAttr(lang)}
+          {/* Desktop */}
+          <motion.div key="pm-dialog" dir={dir}
             initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1,    y: 0  }}
-            exit={{   opacity: 0, scale: 0.95, y: 20  }}
+            animate={{ opacity: 1, scale: 1, y: 0 }}
+            exit={{ opacity: 0, scale: 0.95, y: 20 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             className="hidden sm:flex fixed inset-0 z-50 items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="w-full max-w-lg bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl shadow-black/50 overflow-hidden">
-              <div className="flex items-center justify-between px-6 py-5 border-b border-white/10 bg-gradient-to-l from-orange-500/10 to-transparent">
-                {headerContent}
-              </div>
-              <div className="px-6 py-6 space-y-5 max-h-[65vh] overflow-y-auto">{formBody}</div>
-              <div className="flex items-center justify-end gap-3 px-6 py-4 border-t border-white/10">
-                {footerActions}
-              </div>
+            onClick={(e) => e.stopPropagation()}>
+            <div className="w-full max-w-lg bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
+              <div className="h-1 w-full bg-gradient-to-r from-[#F97316] to-[#EA580C] shrink-0" />
+              {header}
+              <div className="overflow-y-auto flex-1 px-6 py-6">{formBody}</div>
+              <div className="px-6 py-4 border-t border-white/10 shrink-0">{footer}</div>
             </div>
           </motion.div>
         </>

@@ -1,13 +1,14 @@
 // ============================================================
-// projects.types.ts
+// projects.types.ts — Extended with contract integration
 // ============================================================
 import type { Lang } from "./Settings.types";
+import type { ContractFormValues, Contract } from "./contracts.types";
 
 export type RiskLevel = "low" | "medium" | "high";
 
 export interface Project {
   id:           number;
-  name:         string;   // plain API string
+  name:         string;
   budget:       number;
   actualCost:   number;
   progress:     number;   // 0–100
@@ -16,13 +17,13 @@ export interface Project {
 }
 
 export interface CostBreakdownItem {
-  name:  string;   // plain API string
+  name:  string;
   value: number;
   color: string;
 }
 
 export interface BudgetActualItem {
-  phase:  string;  // plain API string
+  phase:  string;
   budget: number;
   actual: number;
 }
@@ -42,6 +43,9 @@ export interface ProjectFormValues {
   progress:     string;
   profitMargin: string;
   riskLevel:    RiskLevel;
+  // Optional inline contract when creating a project
+  addContract?:      boolean;
+  contractValues?:   ContractFormValues;
 }
 
 export interface ProjectFormErrors {
@@ -64,9 +68,7 @@ export interface ProjectsHeaderProps {
 export interface ProjectsTableProps {
   projects:          Project[];
   lang:              Lang;
-  /** ID of the currently-selected project for row highlight */
   selectedProjectId: number | null;
-  /** Row body click (not action buttons) → update ProjectDetails */
   onSelect:          (project: Project) => void;
   onView:            (project: Project) => void;
   onEdit:            (project: Project) => void;

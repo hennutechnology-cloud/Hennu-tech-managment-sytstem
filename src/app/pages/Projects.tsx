@@ -1,22 +1,25 @@
 // ============================================================
-// Projects.tsx — page orchestrator
-// Reads/writes projects and selectedProject via ProjectContext
-// so the Layout sidebar switcher stays in sync automatically.
+// Projects.tsx — Main Projects page
+// ProjectDetails now embeds CostBreakdownManager +
+// BudgetActualManager so users manage those datasets inline.
 // ============================================================
 import { useEffect, useState, useCallback } from "react";
 import { useLang }             from "../core/context/LangContext";
 import { useProjectContext }   from "../core/context/ProjectContext";
-import { tProj }               from "../core/i18n/projects.i18n";
 import { projectsService }     from "../core/services/project.service";
-import ProjectsHeader          from "../components/projects/ProjectsHeader";
-import ProjectsTable           from "../components/projects/ProjectsTable";
-import ProjectDetails          from "../components/projects/ProjectDetails";
-import ProjectStats            from "../components/projects/ProjectStats";
-import ProjectModal            from "../components/projects/ProjectModal";
-import DeleteConfirm           from "../components/projects/DeleteConfirm";
+import { tProj, dirAttr }      from "../core/i18n/projects.i18n";
+import ProjectsHeader          from "../components/Projects/ProjectsHeader";
+import ProjectStats            from "../components/Projects/ProjectStats";
+import ProjectsTable           from "../components/Projects/ProjectsTable";
+import ProjectDetails          from "../components/Projects/ProjectDetails";
+import ProjectModal            from "../components/Projects/ProjectModal";
+import DeleteConfirm           from "../components/Projects/DeleteConfirm";
+import CostBreakdownManager    from "../components/projects/CostBreakdownManager";
+import BudgetActualManager     from "../components/projects/BudgetActualManager";
 import type {
-  Project, ProjectFormValues, ProjectStats as Stats,
-  CostBreakdownItem, BudgetActualItem, ModalMode,
+  Project, ProjectStats as TStats,
+  CostBreakdownItem, BudgetActualItem,
+  ModalMode, ProjectFormValues,
 } from "../core/models/projects.types";
 
 function Skeleton({ className }: { className: string }) {
@@ -24,116 +27,120 @@ function Skeleton({ className }: { className: string }) {
 }
 
 export default function Projects() {
-  const { lang } = useLang();
+  const { lang }                                            = useLang();
+  const { setProjects: setCtxProjects, setSelectedProject } = useProjectContext();
 
-  // ── Shared context ───────────────────────────────────────────
-  // projects + selectedProject live in context so the Layout
-  // sidebar switcher is always in sync with this page.
-  const {
-    projects,
-    setProjects,
-    selectedProject,
-    setSelectedProject,
-    projectsLoading,
-  } = useProjectContext();
-
-  // ── Page-local state ─────────────────────────────────────────
-  const [stats,         setStats]         = useState<Stats | null>(null);
+  const [projects,      setProjects]      = useState<Project[]>([]);
+  const [stats,         setStats]         = useState<TStats | null>(null);
+  const [selectedId,    setSelectedId]    = useState<number | null>(null);
   const [costBreakdown, setCostBreakdown] = useState<CostBreakdownItem[]>([]);
   const [budgetActual,  setBudgetActual]  = useState<BudgetActualItem[]>([]);
-  const [statsLoading,  setStatsLoading]  = useState(true);
+  const [loading,       setLoading]       = useState(true);
   const [error,         setError]         = useState(false);
 
-  const [modalOpen,    setModalOpen]    = useState(false);
-  const [modalMode,    setModalMode]    = useState<ModalMode>("add");
-  const [modalProject, setModalProject] = useState<Project | null>(null);
-  const [deleteOpen,   setDeleteOpen]   = useState(false);
-  const [deleteTarget, setDeleteTarget] = useState<Project | null>(null);
+  const [modalOpen,     setModalOpen]     = useState(false);
+  const [modalMode,     setModalMode]     = useState<ModalMode>("add");
+  const [modalProject,  setModalProject]  = useState<Project | null>(null);
+  const [deleteOpen,    setDeleteOpen]    = useState(false);
+  const [deleteProject, setDeleteProject] = useState<Project | null>(null);
 
-  // ── Fetch stats (projects list already loaded by context) ────
+  const selectedProject = projects.find((p) => p.id === selectedId) ?? null;
+
+  // ── Initial load ────────────────────────────────────────────
   useEffect(() => {
-    projectsService.fetchStats()
-      .then(setStats)
+    Promise.all([projectsService.fetchProjects(), projectsService.fetchStats()])
+      .then(([projs, s]) => {
+        setProjects(projs);
+        setCtxProjects(projs);
+        setStats(s);
+        if (projs[0]) { setSelectedId(projs[0].id); setSelectedProject(projs[0]); }
+      })
       .catch(() => setError(true))
-      .finally(() => setStatsLoading(false));
+      .finally(() => setLoading(false));
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // ── Fetch charts when selected project changes ────────────────
+  // ── Load chart data when selection changes ──────────────────
   useEffect(() => {
-    if (!selectedProject) return;
+    if (selectedId == null) return;
     Promise.all([
-      projectsService.fetchCostBreakdown(selectedProject.id),
-      projectsService.fetchBudgetActual(selectedProject.id),
-    ]).then(([cb, ba]) => {
-      setCostBreakdown(cb);
-      setBudgetActual(ba);
-    });
-  }, [selectedProject]);
+      projectsService.fetchCostBreakdown(selectedId),
+      projectsService.fetchBudgetActual(selectedId),
+    ]).then(([cb, ba]) => { setCostBreakdown(cb); setBudgetActual(ba); });
+  }, [selectedId]);
 
-  // ── Modal openers ────────────────────────────────────────────
-  const openAdd = () => {
-    setModalProject(null);
-    setModalMode("add");
-    setModalOpen(true);
+  const refreshStats = useCallback(async () => {
+    const s = await projectsService.fetchStats();
+    setStats(s);
+  }, []);
+
+  // ── Selection ───────────────────────────────────────────────
+  const handleSelect = (project: Project) => {
+    const newId = project.id === selectedId ? null : project.id;
+    setSelectedId(newId);
+    setSelectedProject(newId ? project : null);
   };
 
-  const openView = (project: Project) => {
-    setModalProject(project);
-    setModalMode("view");
-    setModalOpen(true);
-    // Eye button also selects the project for the details section
-    setSelectedProject(project);
-  };
+  // ── Modal openers ───────────────────────────────────────────
+  const openAdd    = () => { setModalMode("add");  setModalProject(null);    setModalOpen(true); };
+  const openView   = (p: Project) => { setModalMode("view"); setModalProject(p); setModalOpen(true); };
+  const openEdit   = (p: Project) => { setModalMode("edit"); setModalProject(p); setModalOpen(true); };
+  const openDelete = (p: Project) => { setDeleteProject(p); setDeleteOpen(true); };
 
-  const openEdit = (project: Project) => {
-    setModalProject(project);
-    setModalMode("edit");
-    setModalOpen(true);
-  };
-
-  const openDelete = (project: Project) => {
-    setDeleteTarget(project);
-    setDeleteOpen(true);
-  };
-
-  // ── Save ─────────────────────────────────────────────────────
-  const handleSave = useCallback(async (values: ProjectFormValues) => {
-    let updated: Project[];
-    if (modalMode === "add" || !modalProject) {
-      updated = await projectsService.createProject(values);
-    } else {
-      updated = await projectsService.updateProject(modalProject.id, values);
+  // ── Save project ────────────────────────────────────────────
+  const handleSave = async (values: ProjectFormValues) => {
+    if (modalMode === "add") {
+      const created = await projectsService.createProject(values);
+      const updated = [...projects, created];
+      setProjects(updated);
+      setCtxProjects(updated);
+      setSelectedId(created.id);
+      setSelectedProject(created);
+      // Reset manager data for fresh project
+      setCostBreakdown([]);
+      setBudgetActual([]);
+    } else if (modalMode === "edit" && modalProject) {
+      const updatedP = await projectsService.updateProject(modalProject.id, values);
+      const updated  = projects.map((p) => p.id === updatedP.id ? updatedP : p);
+      setProjects(updated);
+      setCtxProjects(updated);
+      if (selectedId === updatedP.id) setSelectedProject(updatedP);
     }
-    // setProjects in context handles selectedProject sync automatically
+    await refreshStats();
+  };
+
+  // ── Delete project ──────────────────────────────────────────
+  const handleDeleteConfirm = async () => {
+    if (!deleteProject) return;
+    await projectsService.deleteProject(deleteProject.id);
+    const updated = projects.filter((p) => p.id !== deleteProject.id);
     setProjects(updated);
-  }, [modalMode, modalProject, setProjects]);
-
-  // ── Delete ────────────────────────────────────────────────────
-  const handleDelete = useCallback(async () => {
-    if (!deleteTarget) return;
-    const updated = await projectsService.deleteProject(deleteTarget.id);
-    setProjects(updated); // context auto-updates selectedProject
+    setCtxProjects(updated);
+    if (selectedId === deleteProject.id) {
+      const next = updated[0] ?? null;
+      setSelectedId(next?.id ?? null);
+      setSelectedProject(next);
+      setCostBreakdown([]);
+      setBudgetActual([]);
+    }
     setDeleteOpen(false);
-    setDeleteTarget(null);
-  }, [deleteTarget, setProjects]);
+    setDeleteProject(null);
+    await refreshStats();
+  };
 
-  // ── Render ───────────────────────────────────────────────────
-  const isLoading = projectsLoading || statsLoading;
-
-  if (isLoading) {
+  // ── Loading / error ─────────────────────────────────────────
+  if (loading) {
     return (
-      <div className="space-y-8">
+      <div className="space-y-6" dir={dirAttr(lang)}>
         <Skeleton className="h-16" />
-        <Skeleton className="h-56" />
-        <Skeleton className="h-80" />
-        <div className="grid grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
           {[...Array(4)].map((_, i) => <Skeleton key={i} className="h-24" />)}
         </div>
+        <Skeleton className="h-64" />
         <p className="text-center text-gray-500 text-sm">{tProj(lang, "loading")}</p>
       </div>
     );
   }
-
   if (error) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -143,30 +150,48 @@ export default function Projects() {
   }
 
   return (
-    <div className="space-y-8">
-
+    <div className="space-y-6 sm:space-y-8" dir={dirAttr(lang)}>
       <ProjectsHeader lang={lang} onAddProject={openAdd} />
+
+      {stats && <ProjectStats stats={stats} lang={lang} />}
 
       <ProjectsTable
         projects={projects}
         lang={lang}
-        selectedProjectId={selectedProject?.id ?? null}
-        onSelect={setSelectedProject}       // row click → update details
+        selectedProjectId={selectedId}
+        onSelect={handleSelect}
         onView={openView}
         onEdit={openEdit}
         onDelete={openDelete}
       />
 
       {selectedProject && (
-        <ProjectDetails
-          project={selectedProject}
-          costBreakdown={costBreakdown}
-          budgetActual={budgetActual}
-          lang={lang}
-        />
-      )}
+        <>
+          {/* Core project KPIs / charts */}
+          <ProjectDetails
+            project={selectedProject}
+            costBreakdown={costBreakdown}
+            budgetActual={budgetActual}
+            lang={lang}
+          />
 
-      {stats && <ProjectStats stats={stats} lang={lang} />}
+          {/* ── User-managed data panels ── */}
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
+            <CostBreakdownManager
+              projectId={selectedProject.id}
+              items={costBreakdown}
+              lang={lang}
+              onSaved={setCostBreakdown}
+            />
+            <BudgetActualManager
+              projectId={selectedProject.id}
+              items={budgetActual}
+              lang={lang}
+              onSaved={setBudgetActual}
+            />
+          </div>
+        </>
+      )}
 
       <ProjectModal
         isOpen={modalOpen}
@@ -175,17 +200,16 @@ export default function Projects() {
         lang={lang}
         onClose={() => setModalOpen(false)}
         onSave={handleSave}
-        onEdit={openEdit}
+        onEdit={(p) => { setModalOpen(false); setTimeout(() => openEdit(p), 150); }}
       />
 
       <DeleteConfirm
         isOpen={deleteOpen}
-        project={deleteTarget}
+        project={deleteProject}
         lang={lang}
-        onConfirm={handleDelete}
-        onCancel={() => { setDeleteOpen(false); setDeleteTarget(null); }}
+        onConfirm={handleDeleteConfirm}
+        onCancel={() => { setDeleteOpen(false); setDeleteProject(null); }}
       />
-
     </div>
   );
 }

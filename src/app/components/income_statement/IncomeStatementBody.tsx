@@ -116,7 +116,6 @@ export default function IncomeStatementBody({ data }: IncomeStatementBodyProps) 
             مصروفات أخرى
           </h2>
           <div className="space-y-0 sm:pr-8">
-            <Row label="فوائد بنكية" amount={data.otherExpenses.interest} />
             <Row label="ضرائب"        amount={data.otherExpenses.taxes} />
             <Subtotal label="إجمالي المصروفات الأخرى"
                       amount={data.otherExpenses.total} color="text-red-400" negative />

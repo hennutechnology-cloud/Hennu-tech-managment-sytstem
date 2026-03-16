@@ -1,5 +1,6 @@
 // ============================================================
 // AddPaymentModal.tsx — Record a direct payment (partial/full)
+// Date values: "YYYY-MM-DDTHH:mm:ss"  (C# DateTime-compatible)
 // ============================================================
 import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence }       from "motion/react";
@@ -7,24 +8,36 @@ import { X, DollarSign, AlertCircle }    from "lucide-react";
 import { contractsService }              from "../../core/services/contracts.service";
 import { tContract, dirAttr, flip }      from "../../core/i18n/contracts.i18n";
 import { formatNum }                     from "../../core/i18n/projects.i18n";
-import type {
-  AddPaymentModalProps,
-  DirectPaymentFormValues,
-  DirectPaymentFormErrors,
-} from "../../core/models/contracts.types";
+import DatePicker                        from "../../core/shared/components/DatePicker";
+import type { AddPaymentModalProps }     from "../../core/models/contracts.types";
 
-const today = new Date();
+interface DirectPaymentFormValues {
+  amount:      string;
+  type:        "partial" | "full";
+  description: string;
+  paidOn:      string; // "YYYY-MM-DDTHH:mm:ss"
+  reference:   string;
+}
+
+interface DirectPaymentFormErrors {
+  amount?:      string;
+  description?: string;
+  paidOn?:      string;
+  reference?:   string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function dtToCalendar(dt: string) {
+  const [y, m, d] = dt.split("T")[0].split("-").map(Number);
+  return { year: y, month: m, day: d };
+}
+
+const pad    = (n: number) => String(n).padStart(2, "0");
+const today  = new Date();
+const todayDt = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}T00:00:00`;
 
 function makeEmpty(remaining: number): DirectPaymentFormValues {
-  return {
-    amount:      String(remaining),
-    type:        "partial",
-    description: "",
-    paidDay:     String(today.getDate()),
-    paidMonth:   String(today.getMonth() + 1),
-    paidYear:    String(today.getFullYear()),
-    reference:   "",
-  };
+  return { amount: String(remaining), type: "partial", description: "", paidOn: todayDt, reference: "" };
 }
 
 function validate(v: DirectPaymentFormValues, remaining: number, tFn: (k: any) => string): DirectPaymentFormErrors {
@@ -32,13 +45,9 @@ function validate(v: DirectPaymentFormValues, remaining: number, tFn: (k: any) =
   if (!v.description.trim()) e.description = tFn("errRequired");
   if (!v.reference.trim())   e.reference   = tFn("errRequired");
   const amt = parseFloat(v.amount);
-  if (isNaN(amt) || amt <= 0)    e.amount = tFn("errPositiveNumber");
+  if (isNaN(amt) || amt <= 0)                       e.amount = tFn("errPositiveNumber");
   else if (v.type === "partial" && amt > remaining) e.amount = tFn("errExceedsRemaining");
-  const yr = parseInt(v.paidYear,  10);
-  const mo = parseInt(v.paidMonth, 10);
-  const da = parseInt(v.paidDay,   10);
-  if (isNaN(yr) || isNaN(mo) || isNaN(da) || mo < 1 || mo > 12 || da < 1 || da > 31)
-    e.paidOn = tFn("errInvalidDate");
+  if (!v.paidOn) e.paidOn = tFn("errInvalidDate");
   return e;
 }
 
@@ -71,20 +80,13 @@ export default function AddPaymentModal({
   const t   = (k: any) => tContract(lang, k);
   const dir = dirAttr(lang);
   const fmt = (n: number) => formatNum(n, lang);
+  const set = (f: keyof DirectPaymentFormValues, v: string) => setValues((p) => ({ ...p, [f]: v }));
+  const clearErr = (...fs: (keyof DirectPaymentFormErrors)[]) =>
+    setErrors((e) => { const n = { ...e }; fs.forEach((f) => delete n[f]); return n; });
 
-  const set = (field: keyof DirectPaymentFormValues, val: string) => {
-    setValues((v) => ({ ...v, [field]: val }));
-    setErrors((e) => ({ ...e, [field]: undefined, paidOn: undefined }));
-  };
-
-  // When switching to "full", auto-fill the remaining amount
   const setType = (type: "partial" | "full") => {
-    setValues((v) => ({
-      ...v,
-      type,
-      amount: type === "full" ? String(remainingAmount) : v.amount,
-    }));
-    setErrors((e) => ({ ...e, amount: undefined }));
+    setValues((v) => ({ ...v, type, amount: type === "full" ? String(remainingAmount) : v.amount }));
+    clearErr("amount");
   };
 
   const effectiveAmount = useMemo(() => {
@@ -96,24 +98,24 @@ export default function AddPaymentModal({
     const errs = validate(values, remainingAmount, t);
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
+    const pd = dtToCalendar(values.paidOn);
     try {
-      const pmt = await contractsService.createDirectPayment(contractId, values);
-      onSaved(pmt);
-      onClose();
+      const pmt = await contractsService.createDirectPayment(contractId, {
+        amount: values.amount, type: values.type, description: values.description,
+        paidDay: String(pd.day), paidMonth: String(pd.month), paidYear: String(pd.year),
+        reference: values.reference,
+      });
+      onSaved(pmt); onClose();
     } finally { setSaving(false); }
   };
 
   const formBody = (
     <div dir={dir} className="space-y-4 sm:space-y-5">
-      {/* Remaining amount banner */}
       <div className="p-3 rounded-xl bg-blue-500/10 border border-blue-500/20 flex items-center justify-between">
         <span className="text-sm text-gray-300">{t("remainingToPay")}</span>
-        <span className="text-base font-bold text-blue-400">
-          {fmt(remainingAmount)} {t("currency")}
-        </span>
+        <span className="text-base font-bold text-blue-400">{fmt(remainingAmount)} {t("currency")}</span>
       </div>
 
-      {/* Payment type */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldPaymentType")}</label>
         <div className="grid grid-cols-2 gap-2">
@@ -138,63 +140,41 @@ export default function AddPaymentModal({
         )}
       </div>
 
-      {/* Amount */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldPaymentAmount")}</label>
         <input type="number" dir="ltr" min={0} max={remainingAmount}
           value={values.type === "full" ? remainingAmount : values.amount}
           readOnly={values.type === "full"}
-          onChange={(e) => set("amount", e.target.value)}
+          onChange={(e) => { set("amount", e.target.value); clearErr("amount"); }}
           className={`${inputCls(errors.amount)} ${values.type === "full" ? "opacity-60 cursor-not-allowed" : ""}`} />
         <AnimatePresence><FieldError msg={errors.amount} /></AnimatePresence>
       </div>
 
-      {/* Effective amount preview */}
       {effectiveAmount > 0 && (
         <div className="p-3 rounded-xl bg-emerald-500/10 border border-emerald-500/20 flex items-center justify-between">
           <span className="text-sm text-gray-300">{t("paymentAmount")}</span>
-          <span className="text-base font-bold text-emerald-400">
-            {fmt(effectiveAmount)} {t("currency")}
-          </span>
+          <span className="text-base font-bold text-emerald-400">{fmt(effectiveAmount)} {t("currency")}</span>
         </div>
       )}
 
-      {/* Description */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldPaymentDescription")}</label>
         <input type="text" value={values.description}
-          onChange={(e) => set("description", e.target.value)}
-          placeholder={t("fieldPaymentDescPH")}
-          className={inputCls(errors.description)} />
+          onChange={(e) => { set("description", e.target.value); clearErr("description"); }}
+          placeholder={t("fieldPaymentDescPH")} className={inputCls(errors.description)} />
         <AnimatePresence><FieldError msg={errors.description} /></AnimatePresence>
       </div>
 
-      {/* Reference */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldPaymentReference")}</label>
         <input type="text" dir="ltr" value={values.reference}
-          onChange={(e) => set("reference", e.target.value)}
-          placeholder={t("fieldPaymentRefPH")}
-          className={inputCls(errors.reference)} />
+          onChange={(e) => { set("reference", e.target.value); clearErr("reference"); }}
+          placeholder={t("fieldPaymentRefPH")} className={inputCls(errors.reference)} />
         <AnimatePresence><FieldError msg={errors.reference} /></AnimatePresence>
       </div>
 
-      {/* Date */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldPaymentDate")}</label>
-        <div className="grid grid-cols-3 gap-2">
-          {([ ["fieldDay", "paidDay", 1, 31], ["fieldMonth", "paidMonth", 1, 12], ["fieldYear", "paidYear", 2000, 2100] ] as const).map(([lk, field, mn, mx]) => (
-            <div key={field}>
-              <p className="text-[10px] text-gray-500 mb-1">{t(lk)}</p>
-              <input type="number" dir="ltr" min={mn} max={mx}
-                value={values[field as keyof DirectPaymentFormValues] as string}
-                onChange={(e) => set(field as keyof DirectPaymentFormValues, e.target.value)}
-                className={inputCls(errors.paidOn)} />
-            </div>
-          ))}
-        </div>
-        <AnimatePresence><FieldError msg={errors.paidOn} /></AnimatePresence>
-      </div>
+      <DatePicker lang={lang} label={t("fieldPaymentDate")} value={values.paidOn}
+        onChange={(v) => { set("paidOn", v); clearErr("paidOn"); }} error={errors.paidOn} />
     </div>
   );
 
@@ -204,18 +184,13 @@ export default function AddPaymentModal({
         <h2 className="text-base sm:text-lg font-bold text-white">{t("addPaymentTitle")}</h2>
         <p className="text-xs text-gray-400 mt-0.5">{t("addPaymentSubtitle")}</p>
       </div>
-      <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white">
-        <X className="w-5 h-5" />
-      </button>
+      <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
     </div>
   );
 
   const footer = (
     <div dir={dir} className={`flex items-center gap-3 ${flip(lang, "justify-end", "justify-start")}`}>
-      <button onClick={onClose}
-        className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
-        {t("cancel")}
-      </button>
+      <button onClick={onClose} className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">{t("cancel")}</button>
       <button onClick={handleSave} disabled={saving}
         className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-l from-emerald-600 to-emerald-500 text-white text-sm font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-emerald-500/30 transition-all disabled:opacity-50">
         {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <DollarSign className="w-4 h-4" />}
@@ -228,31 +203,17 @@ export default function AddPaymentModal({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div key="pay-backdrop"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]" />
-
-          {/* Mobile */}
-          <motion.div key="pay-mobile" dir={dir}
-            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="sm:hidden fixed inset-x-0 bottom-0 z-[56] bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl max-h-[96dvh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+          <motion.div key="pay-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]" />
+          <motion.div key="pay-mobile" dir={dir} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="sm:hidden fixed inset-x-0 bottom-0 z-[56] bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl max-h-[96dvh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="h-1 w-full bg-gradient-to-r from-emerald-600 to-emerald-400" />
             <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full bg-white/20" /></div>
             {header}
             <div className="overflow-y-auto flex-1 px-5 py-5">{formBody}</div>
             <div className="px-5 py-4 border-t border-white/10 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>
           </motion.div>
-
-          {/* Desktop */}
-          <motion.div key="pay-dialog" dir={dir}
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="hidden sm:flex fixed inset-0 z-[56] items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}>
+          <motion.div key="pay-dialog" dir={dir} initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="hidden sm:flex fixed inset-0 z-[56] items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-full max-w-md bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <div className="h-1 w-full bg-gradient-to-r from-emerald-600 to-emerald-400 shrink-0" />
               {header}

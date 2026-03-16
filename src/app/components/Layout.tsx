@@ -49,6 +49,7 @@ const navSections: NavSection[] = [
     items: [
       { path: "/projects",       icon: Building2        },
       { path: "/contracts",      icon: GitCompareArrows },
+      { path: "/subcontractors", icon: HardHat          },
       { path: "/boq-comparison", icon: GitCompareArrows },
       { path: "/boq-management", icon: GitCompareArrows },
       { path: "/procurement",    icon: ShoppingCart     },
@@ -87,7 +88,7 @@ const navSections: NavSection[] = [
 
 // Mobile bottom nav: first 5 most-used paths
 
-const mobileBottomPaths = ["/", "/projects", "/contracts", "/procurement", "/ai-analytics"];
+const mobileBottomPaths = ["/", "/projects", "/contracts", "/subcontractors", "/ai-analytics"];
 const allItems          = navSections.flatMap((s) => s.items);
 const mobileBottomItems = mobileBottomPaths.map(
   (p) => allItems.find((i) => i.path === p)!

@@ -1,8 +1,6 @@
 // ============================================================
 // EditContractModal.tsx — Edit editable fields of a contract
-// Editable: contractor name, scope, status, end date,
-//           retention %, penalties
-// Read-only: contract number, original value, start date
+// Date values: "YYYY-MM-DDTHH:mm:ss"  (C# DateTime-compatible)
 // ============================================================
 import { useState, useEffect }     from "react";
 import { motion, AnimatePresence } from "motion/react";
@@ -13,21 +11,40 @@ import {
   resolveContractStatusBadge,
 } from "../../core/i18n/contracts.i18n";
 import { formatNum } from "../../core/i18n/projects.i18n";
-import type {
-  EditContractModalProps,
-  ContractEditValues,
-  ContractEditErrors,
-  ContractStatus,
-} from "../../core/models/contracts.types";
+import DatePicker    from "../../core/shared/components/DatePicker";
+import type { EditContractModalProps, ContractStatus } from "../../core/models/contracts.types";
 
-function toEditValues(c: NonNullable<EditContractModalProps["contract"]>): ContractEditValues {
+interface ContractEditValues {
+  contractorName:   string;
+  scopeDescription: string;
+  status:           ContractStatus;
+  endDate:          string; // "YYYY-MM-DDTHH:mm:ss"
+  retentionPercent: string;
+  penalties:        string;
+}
+
+interface ContractEditErrors {
+  contractorName?:   string;
+  scopeDescription?: string;
+  retentionPercent?: string;
+  endDate?:          string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function dtToCalendar(dt: string) {
+  const [y, m, d] = dt.split("T")[0].split("-").map(Number);
+  return { year: y, month: m, day: d };
+}
+
+const pad = (n: number) => String(n).padStart(2, "0");
+
+function contractToEditValues(c: NonNullable<EditContractModalProps["contract"]>): ContractEditValues {
+  const { endDate: ed } = c;
   return {
     contractorName:   c.contractorName,
     scopeDescription: c.scopeDescription,
     status:           c.status,
-    endDay:           String(c.endDate.day),
-    endMonth:         String(c.endDate.month),
-    endYear:          String(c.endDate.year),
+    endDate:          `${ed.year}-${pad(ed.month)}-${pad(ed.day)}T00:00:00`,
     retentionPercent: String(c.retentionPercent),
     penalties:        String(c.penalties),
   };
@@ -39,11 +56,7 @@ function validate(v: ContractEditValues, tFn: (k: any) => string): ContractEditE
   if (!v.scopeDescription.trim()) e.scopeDescription = tFn("errRequired");
   const ret = +v.retentionPercent;
   if (isNaN(ret) || ret < 0 || ret > 100) e.retentionPercent = tFn("errRetentionRange");
-  const yr = parseInt(v.endYear,  10);
-  const mo = parseInt(v.endMonth, 10);
-  const da = parseInt(v.endDay,   10);
-  if (isNaN(yr) || isNaN(mo) || isNaN(da) || mo < 1 || mo > 12 || da < 1 || da > 31)
-    e.endDate = tFn("errInvalidDate");
+  if (!v.endDate) e.endDate = tFn("errInvalidDate");
   return e;
 }
 
@@ -60,9 +73,6 @@ function FieldError({ msg }: { msg?: string }) {
 const inputCls = (err?: string) =>
   `w-full bg-white/5 border ${err ? "border-red-500/60" : "border-white/10"} rounded-xl px-4 py-2.5 text-white placeholder-gray-500 text-sm focus:outline-none focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/30 transition-all`;
 
-const readonlyCls =
-  "w-full bg-white/[0.03] border border-white/5 rounded-xl px-4 py-2.5 text-gray-500 text-sm cursor-not-allowed";
-
 export default function EditContractModal({
   isOpen, contract, lang, onClose, onSaved,
 }: EditContractModalProps) {
@@ -72,7 +82,7 @@ export default function EditContractModal({
 
   useEffect(() => {
     if (!isOpen || !contract) return;
-    setValues(toEditValues(contract));
+    setValues(contractToEditValues(contract));
     setErrors({});
   }, [isOpen, contract?.id]);
 
@@ -82,20 +92,29 @@ export default function EditContractModal({
 
   if (!contract || !values) return null;
 
-  const set = (field: keyof ContractEditValues, val: string) => {
-    setValues((v) => v ? { ...v, [field]: val } : v);
-    setErrors((e) => ({ ...e, [field]: undefined, endDate: undefined }));
-  };
+  const set = (f: keyof ContractEditValues, v: string) =>
+    setValues((p) => p ? { ...p, [f]: v } : p);
+  const clearErr = (...fs: (keyof ContractEditErrors)[]) =>
+    setErrors((e) => { const n = { ...e }; fs.forEach((f) => delete n[f]); return n; });
 
   const handleSave = async () => {
     if (!values) return;
     const errs = validate(values, t);
     if (Object.keys(errs).length) { setErrors(errs); return; }
+    const ed = dtToCalendar(values.endDate);
     setSaving(true);
     try {
-      const updated = await contractsService.updateContract(contract.id, values);
-      onSaved(updated);
-      onClose();
+      const updated = await contractsService.updateContract(contract.id, {
+        contractorName:   values.contractorName,
+        scopeDescription: values.scopeDescription,
+        status:           values.status,
+        endDay:   String(ed.day),
+        endMonth: String(ed.month),
+        endYear:  String(ed.year),
+        retentionPercent: values.retentionPercent,
+        penalties:        values.penalties,
+      });
+      onSaved(updated); onClose();
     } finally { setSaving(false); }
   };
 
@@ -104,7 +123,7 @@ export default function EditContractModal({
   const formBody = (
     <div dir={dir} className="space-y-4 sm:space-y-5">
       {/* Read-only info */}
-      <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] space-y-2">
+      <div className="p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
         <p className="text-[10px] text-gray-500 uppercase tracking-wider mb-2">
           {lang === "ar" ? "بيانات ثابتة (غير قابلة للتعديل)" : "Fixed fields (read-only)"}
         </p>
@@ -119,9 +138,7 @@ export default function EditContractModal({
           </div>
           <div>
             <p className="text-[10px] text-gray-600 mb-1">{t("colStartDate")}</p>
-            <p className="text-xs text-gray-400">
-              {contract.startDate.day}/{contract.startDate.month}/{contract.startDate.year}
-            </p>
+            <p className="text-xs text-gray-400">{contract.startDate.day}/{contract.startDate.month}/{contract.startDate.year}</p>
           </div>
           <div>
             <p className="text-[10px] text-gray-600 mb-1">{t("advancePayment")}</p>
@@ -130,27 +147,23 @@ export default function EditContractModal({
         </div>
       </div>
 
-      {/* Contractor name */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldContractorName")}</label>
         <input type="text" value={values.contractorName}
-          onChange={(e) => set("contractorName", e.target.value)}
-          placeholder={t("fieldContractorPlaceholder")}
-          className={inputCls(errors.contractorName)} />
+          onChange={(e) => { set("contractorName", e.target.value); clearErr("contractorName"); }}
+          placeholder={t("fieldContractorPlaceholder")} className={inputCls(errors.contractorName)} />
         <AnimatePresence><FieldError msg={errors.contractorName} /></AnimatePresence>
       </div>
 
-      {/* Scope */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldScope")}</label>
         <textarea rows={2} value={values.scopeDescription}
-          onChange={(e) => set("scopeDescription", e.target.value)}
+          onChange={(e) => { set("scopeDescription", e.target.value); clearErr("scopeDescription"); }}
           placeholder={t("fieldScopePlaceholder")}
           className={`${inputCls(errors.scopeDescription)} resize-none`} />
         <AnimatePresence><FieldError msg={errors.scopeDescription} /></AnimatePresence>
       </div>
 
-      {/* Status */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldContractStatus")}</label>
         <div className="flex gap-2 flex-wrap">
@@ -158,48 +171,27 @@ export default function EditContractModal({
             const b = resolveContractStatusBadge(lang, s);
             return (
               <button key={s} onClick={() => set("status", s)}
-                className={`flex-1 min-w-[80px] py-2 rounded-xl border text-xs font-medium transition-all ${
-                  values.status === s ? b.className + " ring-1 ring-offset-1 ring-offset-[#0f1117] ring-current"
-                                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                }`}>{b.label}</button>
+                className={`flex-1 min-w-[80px] py-2 rounded-xl border text-xs font-medium transition-all ${values.status === s ? b.className + " ring-1 ring-offset-1 ring-offset-[#0f1117] ring-current" : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"}`}>{b.label}</button>
             );
           })}
         </div>
       </div>
 
-      {/* End date */}
-      <div>
-        <p className="text-sm font-medium text-gray-300 mb-1.5">{t("fieldEndDate")}</p>
-        <div className="grid grid-cols-3 gap-2">
-          {([ ["fieldDay", "endDay", 1, 31], ["fieldMonth", "endMonth", 1, 12], ["fieldYear", "endYear", 2000, 2100] ] as const).map(([lk, field, mn, mx]) => (
-            <div key={field}>
-              <p className="text-[10px] text-gray-500 mb-1">{t(lk)}</p>
-              <input type="number" dir="ltr" min={mn} max={mx}
-                value={values[field as keyof ContractEditValues] as string}
-                onChange={(e) => set(field as keyof ContractEditValues, e.target.value)}
-                className={inputCls(errors.endDate)} />
-            </div>
-          ))}
-        </div>
-        <AnimatePresence><FieldError msg={errors.endDate} /></AnimatePresence>
-      </div>
+      <DatePicker lang={lang} label={t("fieldEndDate")} value={values.endDate}
+        onChange={(v) => { set("endDate", v); clearErr("endDate"); }} error={errors.endDate} />
 
-      {/* Retention & Penalties */}
       <div className="grid grid-cols-2 gap-3">
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldRetentionPercent")}</label>
-          <input type="number" dir="ltr" min={0} max={100} step={0.5}
-            value={values.retentionPercent}
-            onChange={(e) => set("retentionPercent", e.target.value)}
+          <input type="number" dir="ltr" min={0} max={100} step={0.5} value={values.retentionPercent}
+            onChange={(e) => { set("retentionPercent", e.target.value); clearErr("retentionPercent"); }}
             className={inputCls(errors.retentionPercent)} />
           <AnimatePresence><FieldError msg={errors.retentionPercent} /></AnimatePresence>
         </div>
         <div>
           <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldPenalties")}</label>
-          <input type="number" dir="ltr" min={0}
-            value={values.penalties}
-            onChange={(e) => set("penalties", e.target.value)}
-            className={inputCls()} />
+          <input type="number" dir="ltr" min={0} value={values.penalties}
+            onChange={(e) => set("penalties", e.target.value)} className={inputCls()} />
         </div>
       </div>
     </div>
@@ -210,22 +202,16 @@ export default function EditContractModal({
       <div dir={dir}>
         <h2 className="text-base sm:text-lg font-bold text-white">{t("editContractTitle")}</h2>
         <p className="text-xs text-gray-400 mt-0.5">
-          <span className="font-mono text-orange-400">{contract.contractNumber}</span>
-          {" · "}{contract.contractorName}
+          <span className="font-mono text-orange-400">{contract.contractNumber}</span>{" · "}{contract.contractorName}
         </p>
       </div>
-      <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white">
-        <X className="w-5 h-5" />
-      </button>
+      <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
     </div>
   );
 
   const footer = (
     <div dir={dir} className={`flex items-center gap-3 ${flip(lang, "justify-end", "justify-start")}`}>
-      <button onClick={onClose}
-        className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
-        {t("cancel")}
-      </button>
+      <button onClick={onClose} className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">{t("cancel")}</button>
       <button onClick={handleSave} disabled={saving}
         className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-l from-blue-600 to-blue-500 text-white text-sm font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50">
         {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Save className="w-4 h-4" />}
@@ -238,31 +224,17 @@ export default function EditContractModal({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div key="edit-contract-backdrop"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]" />
-
-          {/* Mobile */}
-          <motion.div key="edit-contract-mobile" dir={dir}
-            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="sm:hidden fixed inset-x-0 bottom-0 z-[56] bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl max-h-[96dvh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+          <motion.div key="edit-contract-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]" />
+          <motion.div key="edit-contract-mobile" dir={dir} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="sm:hidden fixed inset-x-0 bottom-0 z-[56] bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl max-h-[96dvh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="h-1 w-full bg-gradient-to-r from-blue-600 to-blue-400" />
             <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full bg-white/20" /></div>
             {header}
             <div className="overflow-y-auto flex-1 px-5 py-5">{formBody}</div>
             <div className="px-5 py-4 border-t border-white/10 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>
           </motion.div>
-
-          {/* Desktop */}
-          <motion.div key="edit-contract-dialog" dir={dir}
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="hidden sm:flex fixed inset-0 z-[56] items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}>
+          <motion.div key="edit-contract-dialog" dir={dir} initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="hidden sm:flex fixed inset-0 z-[56] items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-full max-w-lg bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <div className="h-1 w-full bg-gradient-to-r from-blue-600 to-blue-400 shrink-0" />
               {header}

@@ -1,8 +1,5 @@
 // ============================================================
 // BOQManagement.tsx — page
-// Single fetchAll() on mount → one loading state.
-// All state for modals, filters, expand/collapse lives here.
-// Components receive data as props — nothing fetches itself.
 // ============================================================
 import { useEffect, useState, useMemo } from "react";
 
@@ -12,53 +9,76 @@ import BOQFilters          from "../components/boq_management/BOQFilters";
 import BOQTable            from "../components/boq_management/BOQTable";
 import BOQItemModal        from "../components/boq_management/BOQItemModal";
 import BOQDeleteConfirm    from "../components/boq_management/BOQDeleteConfirm";
+import BOQProgressModal    from "../components/boq_management/BOQProgressModal";
 
-import { boqManagementService }     from "../core/services/BOQManagement.service";
-import { useLang }                  from "../core/context/LangContext";
-import { tBOQMgt }                  from "../core/i18n/boqManagement.i18n";
+import { boqManagementService } from "../core/services/BOQManagement.service";
+import { subcontractorService } from "../core/services/subcontractor.service";
+import { useLang }              from "../core/context/LangContext";
+import { tBOQMgt }              from "../core/i18n/boqManagement.i18n";
 import type {
   BOQManagementData,
   BOQSection,
   BOQSummary,
   BOQItem,
+  BOQItemProgress,
   BOQItemFormValues,
+  BOQProgressFormValues,
   ViewMode,
 } from "../core/models/BOQManagement.types";
+import type { Subcontractor } from "../core/models/subcontractor.types";
 
 export default function BOQManagement() {
   const { lang } = useLang();
 
-  // ── Remote data ────────────────────────────────────────────
+  // ── BOQ data ───────────────────────────────────────────────
   const [sections, setSections] = useState<BOQSection[]>([]);
   const [summary,  setSummary]  = useState<BOQSummary | null>(null);
   const [loading,  setLoading]  = useState(true);
   const [error,    setError]    = useState(false);
 
-  // ── UI state ───────────────────────────────────────────────
-  const [search,            setSearch]            = useState("");
-  const [viewMode,          setViewMode]          = useState<ViewMode>("standard");
-  const [expandedSections,  setExpandedSections]  = useState<Set<string>>(new Set(["01", "02"]));
+  // ── Subcontractors list ────────────────────────────────────
+  const [subcontractors, setSubcontractors] = useState<Subcontractor[]>([]);
 
-  // ── Modal state ────────────────────────────────────────────
-  const [modalOpen,    setModalOpen]    = useState(false);
-  const [editItem,     setEditItem]     = useState<BOQItem | null>(null);
+  // ── Progress map: itemId → BOQItemProgress ─────────────────
+  const [progressMap, setProgressMap] = useState<Record<string, BOQItemProgress>>({});
+
+  // ── UI state ───────────────────────────────────────────────
+  const [search,           setSearch]           = useState("");
+  const [viewMode,         setViewMode]         = useState<ViewMode>("standard");
+  const [expandedSections, setExpandedSections] = useState<Set<string>>(new Set(["01", "02"]));
+
+  // ── Item modal ─────────────────────────────────────────────
+  const [modalOpen, setModalOpen] = useState(false);
+  const [editItem,  setEditItem]  = useState<BOQItem | null>(null);
+
+  // ── Delete modal ───────────────────────────────────────────
   const [deleteOpen,   setDeleteOpen]   = useState(false);
   const [deleteTarget, setDeleteTarget] = useState<BOQItem | null>(null);
+
+  // ── Progress modal ─────────────────────────────────────────
+  const [progressOpen,   setProgressOpen]   = useState(false);
+  const [progressTarget, setProgressTarget] = useState<BOQItem | null>(null);
 
   // ── Initial fetch ──────────────────────────────────────────
   useEffect(() => {
     setLoading(true);
     setError(false);
-    boqManagementService.fetchAll()
-      .then((data: BOQManagementData) => {
-        setSections(data.sections);
-        setSummary(data.summary);
+    Promise.all([
+      boqManagementService.fetchAll(),
+      subcontractorService.fetchAll(),
+    ])
+      .then(([boqData, subData]: [BOQManagementData, any]) => {
+        setSections(boqData.sections);
+        setSummary(boqData.summary);
+        setSubcontractors(subData.subcontractors ?? []);
+        const allItems = boqData.sections.flatMap((s) => s.items);
+        setProgressMap(boqManagementService.getProgressMap(allItems));
       })
       .catch(() => setError(true))
       .finally(() => setLoading(false));
   }, []);
 
-  // ── Filtered sections (client-side search) ─────────────────
+  // ── Filtered sections ──────────────────────────────────────
   const filteredSections = useMemo(() => {
     if (!search.trim()) return sections;
     const q = search.toLowerCase();
@@ -66,15 +86,19 @@ export default function BOQManagement() {
       .map((s) => ({
         ...s,
         items: s.items.filter(
-          (i) =>
-            i.code.toLowerCase().includes(q) ||
-            i.description.toLowerCase().includes(q)
+          (i) => i.code.toLowerCase().includes(q) || i.description.toLowerCase().includes(q)
         ),
       }))
       .filter((s) => s.items.length > 0);
   }, [sections, search]);
 
-  // ── Expand / collapse ──────────────────────────────────────
+  const recomputeSummary = (secs: BOQSection[]): BOQSummary => {
+    const items = secs.flatMap((s) => s.items);
+    const est   = items.reduce((a, i) => a + i.totalCost, 0);
+    const act   = items.reduce((a, i) => a + i.actualCost, 0);
+    return { totalEstimated: est, totalActual: act, totalVariance: est > 0 ? ((act / est) - 1) * 100 : 0 };
+  };
+
   const toggleSection = (code: string) => {
     setExpandedSections((prev) => {
       const next = new Set(prev);
@@ -83,76 +107,83 @@ export default function BOQManagement() {
     });
   };
 
-  // ── Add handler ────────────────────────────────────────────
-  const handleAdd = () => {
-    setEditItem(null);
-    setModalOpen(true);
-  };
+  // ── Item CRUD ──────────────────────────────────────────────
+  const handleAdd  = () => { setEditItem(null); setModalOpen(true); };
+  const handleEdit = (item: BOQItem) => { setEditItem(item); setModalOpen(true); };
 
-  // ── Edit handler ───────────────────────────────────────────
-  const handleEdit = (item: BOQItem) => {
-    setEditItem(item);
-    setModalOpen(true);
-  };
-
-  // ── Delete handler ─────────────────────────────────────────
-  const handleDeleteRequest = (item: BOQItem) => {
-    setDeleteTarget(item);
-    setDeleteOpen(true);
-  };
-
+  const handleDeleteRequest = (item: BOQItem) => { setDeleteTarget(item); setDeleteOpen(true); };
   const handleDeleteConfirm = async () => {
     if (!deleteTarget) return;
     await boqManagementService.deleteItem(deleteTarget.id);
-    setSections((prev) =>
-      prev.map((s) => ({
-        ...s,
-        items: s.items.filter((i) => i.id !== deleteTarget.id),
-      }))
-    );
-    // Recalculate summary
     const updated = sections.map((s) => ({
-      ...s,
-      items: s.items.filter((i) => i.id !== deleteTarget.id),
+      ...s, items: s.items.filter((i) => i.id !== deleteTarget.id),
     }));
-    const allItems = updated.flatMap((s) => s.items);
-    const est = allItems.reduce((a, i) => a + i.totalCost, 0);
-    const act = allItems.reduce((a, i) => a + i.actualCost, 0);
-    setSummary({ totalEstimated: est, totalActual: act, totalVariance: ((act / est) - 1) * 100 });
+    setSections(updated);
+    setSummary(recomputeSummary(updated));
+    setProgressMap((prev) => { const n = { ...prev }; delete n[deleteTarget.id]; return n; });
   };
 
-  // ── Save (add / edit) handler ──────────────────────────────
   const handleSave = async (values: BOQItemFormValues) => {
     if (editItem) {
-      // Edit
       const updated = await boqManagementService.updateItem(editItem.id, values);
-      setSections((prev) =>
-        prev.map((s) => ({
-          ...s,
-          items: s.items.map((i) => (i.id === updated.id ? updated : i)),
-        }))
-      );
+      const newSecs = sections.map((s) => ({
+        ...s, items: s.items.map((i) => (i.id === updated.id ? updated : i)),
+      }));
+      setSections(newSecs);
+      setSummary(recomputeSummary(newSecs));
+      setProgressMap((prev) => ({
+        ...prev,
+        [updated.id]: boqManagementService.getProgress(updated.id, updated.quantity),
+      }));
     } else {
-      // Add
       const newItem = await boqManagementService.addItem(values);
-      setSections((prev) =>
-        prev.map((s) =>
-          s.code === newItem.sectionCode
-            ? { ...s, items: [...s.items, newItem] }
-            : s
-        )
+      const newSecs = sections.map((s) =>
+        s.code === newItem.sectionCode ? { ...s, items: [...s.items, newItem] } : s
       );
-      // Auto-expand the target section
+      setSections(newSecs);
+      setSummary(recomputeSummary(newSecs));
       setExpandedSections((prev) => new Set([...prev, newItem.sectionCode]));
+      setProgressMap((prev) => ({
+        ...prev,
+        [newItem.id]: boqManagementService.getProgress(newItem.id, newItem.quantity),
+      }));
     }
-    // Refresh summary
-    const allItems = sections.flatMap((s) => s.items);
-    const est = allItems.reduce((a, i) => a + i.totalCost, 0);
-    const act = allItems.reduce((a, i) => a + i.actualCost, 0);
-    setSummary({ totalEstimated: est, totalActual: act, totalVariance: ((act / est) - 1) * 100 });
   };
 
-  // ── Loading skeleton ───────────────────────────────────────
+  // ── Progress handlers ──────────────────────────────────────
+  const handleProgressOpen = (item: BOQItem) => {
+    setProgressTarget(item);
+    setProgressOpen(true);
+  };
+
+  const handleAddProgressEntry = async (itemId: string, values: BOQProgressFormValues) => {
+    const item = sections.flatMap((s) => s.items).find((i) => i.id === itemId);
+    if (!item) return;
+    const newProgress = await boqManagementService.addProgressEntry(itemId, item.quantity, values);
+    setProgressMap((prev) => ({ ...prev, [itemId]: newProgress }));
+  };
+
+  const handleUpdateProgressEntry = async (
+    itemId: string,
+    entryId: string,
+    values: BOQProgressFormValues,
+  ) => {
+    const item = sections.flatMap((s) => s.items).find((i) => i.id === itemId);
+    if (!item) return;
+    const newProgress = await boqManagementService.updateProgressEntry(
+      itemId, entryId, item.quantity, values,
+    );
+    setProgressMap((prev) => ({ ...prev, [itemId]: newProgress }));
+  };
+
+  const handleDeleteProgressEntry = (itemId: string, entryId: string) => {
+    const item = sections.flatMap((s) => s.items).find((i) => i.id === itemId);
+    if (!item) return;
+    const newProgress = boqManagementService.deleteProgressEntry(itemId, entryId, item.quantity);
+    setProgressMap((prev) => ({ ...prev, [itemId]: newProgress }));
+  };
+
+  // ── Loading ────────────────────────────────────────────────
   if (loading) {
     return (
       <div className="space-y-6 sm:space-y-8">
@@ -167,7 +198,6 @@ export default function BOQManagement() {
     );
   }
 
-  // ── Error state ────────────────────────────────────────────
   if (error || !summary) {
     return (
       <div className="flex items-center justify-center h-64">
@@ -178,22 +208,11 @@ export default function BOQManagement() {
 
   return (
     <div className="space-y-6 sm:space-y-8">
-      {/* Header */}
+
       <BOQManagementHeader onAdd={handleAdd} lang={lang} />
-
-      {/* Summary KPIs */}
       <BOQSummaryCards summary={summary} lang={lang} />
+      <BOQFilters search={search} onSearch={setSearch} viewMode={viewMode} onViewMode={setViewMode} lang={lang} />
 
-      {/* Filters */}
-      <BOQFilters
-        search={search}
-        onSearch={setSearch}
-        viewMode={viewMode}
-        onViewMode={setViewMode}
-        lang={lang}
-      />
-
-      {/* Table */}
       {filteredSections.length > 0 ? (
         <BOQTable
           sections={filteredSections}
@@ -202,6 +221,8 @@ export default function BOQManagement() {
           onToggleSection={toggleSection}
           onEdit={handleEdit}
           onDelete={handleDeleteRequest}
+          onProgress={handleProgressOpen}
+          progressMap={progressMap}
           lang={lang}
         />
       ) : (
@@ -210,24 +231,29 @@ export default function BOQManagement() {
         </div>
       )}
 
-      {/* Add / Edit modal */}
       <BOQItemModal
-        isOpen={modalOpen}
-        editItem={editItem}
-        sections={sections}
-        onClose={() => setModalOpen(false)}
-        onSave={handleSave}
+        isOpen={modalOpen} editItem={editItem} sections={sections}
+        onClose={() => setModalOpen(false)} onSave={handleSave} lang={lang}
+      />
+
+      <BOQDeleteConfirm
+        isOpen={deleteOpen} item={deleteTarget}
+        onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }}
+        onConfirm={handleDeleteConfirm} lang={lang}
+      />
+
+      <BOQProgressModal
+        isOpen={progressOpen}
+        item={progressTarget}
+        progress={progressTarget ? progressMap[progressTarget.id] ?? null : null}
+        subcontractors={subcontractors}
+        onClose={() => { setProgressOpen(false); setProgressTarget(null); }}
+        onAddEntry={handleAddProgressEntry}
+        onUpdateEntry={handleUpdateProgressEntry}
+        onDeleteEntry={handleDeleteProgressEntry}
         lang={lang}
       />
 
-      {/* Delete confirmation */}
-      <BOQDeleteConfirm
-        isOpen={deleteOpen}
-        item={deleteTarget}
-        onClose={() => { setDeleteOpen(false); setDeleteTarget(null); }}
-        onConfirm={handleDeleteConfirm}
-        lang={lang}
-      />
     </div>
   );
 }

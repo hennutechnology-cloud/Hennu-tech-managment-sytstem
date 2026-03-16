@@ -20,6 +20,7 @@ import AIAnalytics        from "./pages/AIAnalytics";
 import Settings           from "./pages/Settings";
 import Procurement        from "./pages/Procurement";
 import Inventory          from "./pages/Inventory";
+import Subcontractors from "./pages/Subcontractors";
 
 export const router = createBrowserRouter([
   {
@@ -31,6 +32,7 @@ export const router = createBrowserRouter([
       { path: "boq-comparison",           Component: BOQComparison      },
       { path: "boq-management",           Component: BOQManagement      },
       { path: "contracts",                Component: Contract           },
+      { path: "subcontractors",           Component: Subcontractors },
       { path: "chart-of-accounts",        Component: ChartOfAccounts    },
       { path: "journal-entries",          Component: JournalEntries     },
       { path: "general-ledger",           Component: GeneralLedger      },

@@ -29,7 +29,6 @@ export interface OperatingExpensesSection {
 }
 
 export interface OtherExpensesSection {
-  interest: number;
   taxes:    number;
   total:    number;
 }

@@ -1,38 +1,47 @@
 // ============================================================
 // AddChangeOrderModal.tsx — Add a Change Order to a contract
+// Date values: "YYYY-MM-DDTHH:mm:ss"  (C# DateTime-compatible)
 // ============================================================
 import { useState }                from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { X, Plus, AlertCircle }    from "lucide-react";
 import { contractsService }        from "../../core/services/contracts.service";
 import { tContract, dirAttr, flip } from "../../core/i18n/contracts.i18n";
-import type {
-  AddChangeOrderModalProps,
-  ChangeOrderFormValues,
-  ChangeOrderFormErrors,
-} from "../../core/models/contracts.types";
+import DatePicker                  from "../../core/shared/components/DatePicker";
+import type { AddChangeOrderModalProps } from "../../core/models/contracts.types";
 
-const today = new Date();
-const EMPTY: ChangeOrderFormValues = {
-  description:   "",
-  amount:        "",
-  status:        "pending",
-  approvedDay:   String(today.getDate()),
-  approvedMonth: String(today.getMonth() + 1),
-  approvedYear:  String(today.getFullYear()),
-};
-
-function toDate(y: string, m: string, d: string): Date | null {
-  const yr = parseInt(y, 10), mo = parseInt(m, 10), da = parseInt(d, 10);
-  if (isNaN(yr) || isNaN(mo) || isNaN(da) || mo < 1 || mo > 12 || da < 1) return null;
-  return new Date(yr, mo - 1, da);
+interface ChangeOrderFormValues {
+  description: string;
+  amount:      string;
+  status:      "approved" | "pending" | "rejected";
+  approvedOn:  string; // "YYYY-MM-DDTHH:mm:ss"
 }
+
+interface ChangeOrderFormErrors {
+  description?: string;
+  amount?:      string;
+  approvedOn?:  string;
+}
+
+// ── Helpers ───────────────────────────────────────────────────
+function dtToCalendar(dt: string) {
+  const [y, m, d] = dt.split("T")[0].split("-").map(Number);
+  return { year: y, month: m, day: d };
+}
+
+const pad    = (n: number) => String(n).padStart(2, "0");
+const today  = new Date();
+const todayDt = `${today.getFullYear()}-${pad(today.getMonth()+1)}-${pad(today.getDate())}T00:00:00`;
+
+const EMPTY: ChangeOrderFormValues = {
+  description: "", amount: "", status: "pending", approvedOn: todayDt,
+};
 
 function validate(v: ChangeOrderFormValues, tFn: (k: any) => string): ChangeOrderFormErrors {
   const e: ChangeOrderFormErrors = {};
   if (!v.description.trim()) e.description = tFn("errRequired");
   if (!v.amount || isNaN(+v.amount) || +v.amount <= 0) e.amount = tFn("errPositiveNumber");
-  if (!toDate(v.approvedYear, v.approvedMonth, v.approvedDay)) e.approvedOn = tFn("errInvalidDate");
+  if (!v.approvedOn) e.approvedOn = tFn("errInvalidDate");
   return e;
 }
 
@@ -70,49 +79,43 @@ export default function AddChangeOrderModal({
 
   const t   = (k: any) => tContract(lang, k);
   const dir = dirAttr(lang);
-
-  const set = (field: keyof ChangeOrderFormValues, val: string) => {
-    setValues((v) => ({ ...v, [field]: val }));
-    setErrors((e) => ({ ...e, [field]: undefined, approvedOn: undefined }));
-  };
+  const set = (f: keyof ChangeOrderFormValues, v: string) => setValues((p) => ({ ...p, [f]: v }));
+  const clearErr = (...fs: (keyof ChangeOrderFormErrors)[]) =>
+    setErrors((e) => { const n = { ...e }; fs.forEach((f) => delete n[f]); return n; });
 
   const handleSave = async () => {
     const errs = validate(values, t);
     if (Object.keys(errs).length) { setErrors(errs); return; }
     setSaving(true);
+    const ao = dtToCalendar(values.approvedOn);
     try {
-      const co = await contractsService.createChangeOrder(contractId, values);
-      onSaved(co);
-      setValues(EMPTY);
-      setErrors({});
-      onClose();
+      const co = await contractsService.createChangeOrder(contractId, {
+        description: values.description, amount: values.amount, status: values.status,
+        approvedDay: String(ao.day), approvedMonth: String(ao.month), approvedYear: String(ao.year),
+      });
+      onSaved(co); setValues(EMPTY); setErrors({}); onClose();
     } finally { setSaving(false); }
   };
 
   const formBody = (
     <div dir={dir} className="space-y-4 sm:space-y-5">
-      {/* Description */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldCoDescription")}</label>
-        <textarea
-          rows={3} value={values.description}
-          onChange={(e) => set("description", e.target.value)}
+        <textarea rows={3} value={values.description}
+          onChange={(e) => { set("description", e.target.value); clearErr("description"); }}
           placeholder={t("fieldCoDescPlaceholder")}
-          className={`${inputCls(errors.description)} resize-none`}
-        />
+          className={`${inputCls(errors.description)} resize-none`} />
         <AnimatePresence><FieldError msg={errors.description} /></AnimatePresence>
       </div>
 
-      {/* Amount */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldCoAmount")}</label>
         <input type="number" dir="ltr" min={0} value={values.amount}
-          onChange={(e) => set("amount", e.target.value)}
+          onChange={(e) => { set("amount", e.target.value); clearErr("amount"); }}
           className={inputCls(errors.amount)} />
         <AnimatePresence><FieldError msg={errors.amount} /></AnimatePresence>
       </div>
 
-      {/* Status */}
       <div>
         <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldCoStatus")}</label>
         <div className="flex gap-2">
@@ -120,35 +123,16 @@ export default function AddChangeOrderModal({
             const sel = values.status === value;
             return (
               <button key={value} onClick={() => set("status", value)}
-                className={`flex-1 py-2 rounded-xl border text-xs font-medium transition-all ${
-                  sel ? STATUS_STYLE[value] + " ring-1 ring-offset-1 ring-offset-[#0f1117] ring-current"
-                      : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"
-                }`}>{t(labelKey)}</button>
+                className={`flex-1 py-2 rounded-xl border text-xs font-medium transition-all ${sel ? STATUS_STYLE[value] + " ring-1 ring-offset-1 ring-offset-[#0f1117] ring-current" : "bg-white/5 text-gray-400 border-white/10 hover:bg-white/10"}`}>
+                {t(labelKey)}
+              </button>
             );
           })}
         </div>
       </div>
 
-      {/* Date */}
-      <div>
-        <label className="block text-sm font-medium text-gray-300 mb-1.5">{t("fieldCoApprovedOn")}</label>
-        <div className="grid grid-cols-3 gap-2">
-          {([
-            ["fieldDay",   "approvedDay",   1,    31  ],
-            ["fieldMonth", "approvedMonth", 1,    12  ],
-            ["fieldYear",  "approvedYear",  2000, 2100],
-          ] as const).map(([labelKey, field, mn, mx]) => (
-            <div key={field}>
-              <p className="text-[10px] text-gray-500 mb-1">{t(labelKey)}</p>
-              <input type="number" dir="ltr" min={mn} max={mx}
-                value={values[field]}
-                onChange={(e) => set(field, e.target.value)}
-                className={inputCls(errors.approvedOn)} />
-            </div>
-          ))}
-        </div>
-        <AnimatePresence><FieldError msg={errors.approvedOn} /></AnimatePresence>
-      </div>
+      <DatePicker lang={lang} label={t("fieldCoApprovedOn")} value={values.approvedOn}
+        onChange={(v) => { set("approvedOn", v); clearErr("approvedOn"); }} error={errors.approvedOn} />
     </div>
   );
 
@@ -158,23 +142,16 @@ export default function AddChangeOrderModal({
         <h2 className="text-base sm:text-lg font-bold text-white">{t("addCoTitle")}</h2>
         <p className="text-xs text-gray-400 mt-0.5">{t("addCoSubtitle")}</p>
       </div>
-      <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white">
-        <X className="w-5 h-5" />
-      </button>
+      <button onClick={onClose} className="p-2 hover:bg-white/10 rounded-lg transition-colors text-gray-400 hover:text-white"><X className="w-5 h-5" /></button>
     </div>
   );
 
   const footer = (
     <div dir={dir} className={`flex items-center gap-3 ${flip(lang, "justify-end", "justify-start")}`}>
-      <button onClick={onClose}
-        className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">
-        {t("cancel")}
-      </button>
+      <button onClick={onClose} className="flex-1 sm:flex-none px-5 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm">{t("cancel")}</button>
       <button onClick={handleSave} disabled={saving}
         className="flex-1 sm:flex-none px-6 py-2.5 rounded-xl bg-gradient-to-l from-blue-600 to-blue-500 text-white text-sm font-medium flex items-center justify-center gap-2 hover:shadow-lg hover:shadow-blue-500/30 transition-all disabled:opacity-50">
-        {saving
-          ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-          : <Plus className="w-4 h-4" />}
+        {saving ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <Plus className="w-4 h-4" />}
         {saving ? t("saving") : t("addChangeOrder")}
       </button>
     </div>
@@ -184,31 +161,17 @@ export default function AddChangeOrderModal({
     <AnimatePresence>
       {isOpen && (
         <>
-          <motion.div key="co-backdrop"
-            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-            onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]" />
-
-          {/* Mobile */}
-          <motion.div key="co-mobile" dir={dir}
-            initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }}
-            transition={{ type: "spring", stiffness: 300, damping: 30 }}
-            className="sm:hidden fixed inset-x-0 bottom-0 z-[56] bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl max-h-[96dvh] flex flex-col"
-            onClick={(e) => e.stopPropagation()}>
+          <motion.div key="co-backdrop" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} onClick={onClose} className="fixed inset-0 bg-black/60 backdrop-blur-sm z-[55]" />
+          <motion.div key="co-mobile" dir={dir} initial={{ y: "100%" }} animate={{ y: 0 }} exit={{ y: "100%" }} transition={{ type: "spring", stiffness: 300, damping: 30 }}
+            className="sm:hidden fixed inset-x-0 bottom-0 z-[56] bg-[#0f1117] border-t border-white/10 rounded-t-2xl shadow-2xl max-h-[96dvh] flex flex-col" onClick={(e) => e.stopPropagation()}>
             <div className="h-1 w-full bg-gradient-to-r from-blue-600 to-blue-400" />
             <div className="flex justify-center pt-3 pb-1 shrink-0"><div className="w-10 h-1 rounded-full bg-white/20" /></div>
             {header}
             <div className="overflow-y-auto flex-1 px-5 py-5">{formBody}</div>
             <div className="px-5 py-4 border-t border-white/10 shrink-0 pb-[max(1rem,env(safe-area-inset-bottom))]">{footer}</div>
           </motion.div>
-
-          {/* Desktop */}
-          <motion.div key="co-dialog" dir={dir}
-            initial={{ opacity: 0, scale: 0.95, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.95, y: 20 }}
-            transition={{ type: "spring", stiffness: 300, damping: 25 }}
-            className="hidden sm:flex fixed inset-0 z-[56] items-center justify-center p-4"
-            onClick={(e) => e.stopPropagation()}>
+          <motion.div key="co-dialog" dir={dir} initial={{ opacity: 0, scale: 0.95, y: 20 }} animate={{ opacity: 1, scale: 1, y: 0 }} exit={{ opacity: 0, scale: 0.95, y: 20 }} transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            className="hidden sm:flex fixed inset-0 z-[56] items-center justify-center p-4" onClick={(e) => e.stopPropagation()}>
             <div className="w-full max-w-lg bg-[#0f1117] border border-white/10 rounded-2xl shadow-2xl overflow-hidden flex flex-col max-h-[90vh]">
               <div className="h-1 w-full bg-gradient-to-r from-blue-600 to-blue-400 shrink-0" />
               {header}

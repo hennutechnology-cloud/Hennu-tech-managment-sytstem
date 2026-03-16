@@ -18,7 +18,7 @@ const STORE: Record<PeriodKey, IncomeStatementData> = {
     operatingExpenses: { salaries: 2_200_000, rent: 800_000, administrative: 750_000,
                          utilities: 300_000, marketing: 450_000, depreciation: 550_000, total: 5_050_000 },
     operatingIncome:   5_200_000,
-    otherExpenses:     { interest: 350_000, taxes: 850_000, total: 1_200_000 },
+    otherExpenses:     { taxes: 850_000, total: 1_200_000 },
     netIncome:         4_000_000,
   },
   q1_2026: {
@@ -28,7 +28,7 @@ const STORE: Record<PeriodKey, IncomeStatementData> = {
     operatingExpenses: { salaries: 550_000, rent: 200_000, administrative: 180_000,
                          utilities: 70_000, marketing: 100_000, depreciation: 130_000, total: 1_230_000 },
     operatingIncome:   1_030_000,
-    otherExpenses:     { interest: 85_000, taxes: 195_000, total: 280_000 },
+    otherExpenses:     {  taxes: 195_000, total: 280_000 },
     netIncome:         750_000,
   },
   q2_2026: {
@@ -38,7 +38,7 @@ const STORE: Record<PeriodKey, IncomeStatementData> = {
     operatingExpenses: { salaries: 550_000, rent: 200_000, administrative: 190_000,
                          utilities: 75_000, marketing: 115_000, depreciation: 140_000, total: 1_270_000 },
     operatingIncome:   1_440_000,
-    otherExpenses:     { interest: 87_000, taxes: 230_000, total: 317_000 },
+    otherExpenses:     {  taxes: 230_000, total: 317_000 },
     netIncome:         1_123_000,
   },
   q3_2026: {
@@ -48,7 +48,7 @@ const STORE: Record<PeriodKey, IncomeStatementData> = {
     operatingExpenses: { salaries: 550_000, rent: 200_000, administrative: 185_000,
                          utilities: 72_000, marketing: 110_000, depreciation: 138_000, total: 1_255_000 },
     operatingIncome:   1_300_000,
-    otherExpenses:     { interest: 88_000, taxes: 215_000, total: 303_000 },
+    otherExpenses:     { taxes: 215_000, total: 303_000 },
     netIncome:         997_000,
   },
   q4_2026: {
@@ -58,7 +58,7 @@ const STORE: Record<PeriodKey, IncomeStatementData> = {
     operatingExpenses: { salaries: 550_000, rent: 200_000, administrative: 195_000,
                          utilities: 83_000, marketing: 125_000, depreciation: 142_000, total: 1_295_000 },
     operatingIncome:   1_430_000,
-    otherExpenses:     { interest: 90_000, taxes: 210_000, total: 300_000 },
+    otherExpenses:     {  taxes: 210_000, total: 300_000 },
     netIncome:         1_130_000,
   },
 };

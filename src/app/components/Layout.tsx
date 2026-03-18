@@ -54,6 +54,8 @@ const navSections: NavSection[] = [
       { path: "/boq-management", icon: GitCompareArrows },
       { path: "/procurement",    icon: ShoppingCart     },
       { path: "/inventory",      icon: FolderOpen       },
+      { path: "/invoices",       icon: DollarSign       },
+      { path: "/categories",     icon: Plus             },
     ],
   },
   {

@@ -20,6 +20,8 @@ import AIAnalytics        from "./pages/AIAnalytics";
 import Settings           from "./pages/Settings";
 import Procurement        from "./pages/Procurement";
 import Inventory          from "./pages/Inventory";
+import Invoices           from "./pages/Invoices";
+import Categories         from "./pages/Categories";
 import Subcontractors from "./pages/Subcontractors";
 
 export const router = createBrowserRouter([
@@ -44,6 +46,8 @@ export const router = createBrowserRouter([
       { path: "ai-analytics",             Component: AIAnalytics        },
       { path: "procurement",              Component: Procurement        },
       { path: "inventory",                Component: Inventory          },
+      { path: "invoices",                 Component: Invoices           },
+      { path: "categories",               Component: Categories          },
       { path: "settings",                 Component: Settings           },
     ],
   },

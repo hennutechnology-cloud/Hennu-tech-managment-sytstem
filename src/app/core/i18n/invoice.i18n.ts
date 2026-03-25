@@ -1,12 +1,12 @@
 // ============================================================
-// invoice.i18n.ts
+// invoice.i18n.ts  (updated)
 // ============================================================
 import type { Lang } from "../models/Settings.types";
 
 const STRINGS = {
   // ── Page ──────────────────────────────────────────────────
   title:               { ar: "الفواتير",                           en: "Invoices"                     },
-  subtitle:            { ar: "إدارة الفواتير والمدفوعات",          en: "Manage invoices & payments"   },
+  subtitle:            { ar: "إدارة الفواتير والمستخلصات",          en: "Manage invoices & progress"   },
   newInvoice:          { ar: "فاتورة جديدة",                       en: "New Invoice"                  },
 
   // ── Summary cards ─────────────────────────────────────────
@@ -19,6 +19,34 @@ const STRINGS = {
   overdueInvoices:     { ar: "متأخرة",                             en: "Overdue"                      },
   totalReceivable:     { ar: "إجمالي المستحقات",                   en: "Total Receivable"             },
   totalPayable:        { ar: "إجمالي المدفوعات المستحقة",           en: "Total Payable"                },
+  totalContracts:      { ar: "العقود النشطة",                      en: "Active Contracts"             },
+
+  // ── Invoice kind ──────────────────────────────────────────
+  kindNormal:          { ar: "فاتورة عادية",                       en: "Normal Invoice"               },
+  kindProgress:        { ar: "مستخلص",                             en: "Progress Invoice"             },
+  kindLabel:           { ar: "نوع الفاتورة",                       en: "Invoice Type"                 },
+  kindAll:             { ar: "الكل",                               en: "All"                          },
+
+  // ── Contract ──────────────────────────────────────────────
+  contractLabel:       { ar: "العقد",                              en: "Contract"                     },
+  contractPH:          { ar: "اختر العقد",                         en: "Select contract"              },
+  contractName:        { ar: "اسم العقد",                          en: "Contract Name"                },
+  contractNamePH:      { ar: "وصف مختصر للعقد",                    en: "Short contract description"   },
+  contractTotal:       { ar: "قيمة العقد الإجمالية",               en: "Total Contract Value"         },
+  contractProgress:    { ar: "إجمالي المستخلصات",                  en: "Total Progress"               },
+  contractRemaining:   { ar: "الأعمال المتبقية",                   en: "Remaining Work"               },
+  contractPct:         { ar: "نسبة الإنجاز",                       en: "Completion"                   },
+  newContract:         { ar: "عقد جديد",                           en: "New Contract"                 },
+  editContract:        { ar: "تعديل العقد",                        en: "Edit Contract"                },
+  deleteContract:      { ar: "حذف العقد",                          en: "Delete Contract"              },
+  deleteContractMsg:   { ar: "هل أنت متأكد من حذف هذا العقد؟ سيتم إلغاء ربط المستخلصات المرتبطة به.",
+                         en: "Are you sure you want to delete this contract? Linked progress invoices will be unlinked." },
+  contractsPanel:      { ar: "العقود والمستخلصات",                  en: "Contracts & Progress"         },
+  addProgressInvoice:  { ar: "إضافة مستخلص",                       en: "Add Progress Invoice"         },
+  noContracts:         { ar: "لا توجد عقود",                        en: "No contracts"                 },
+  contractInvoices:    { ar: "المستخلصات",                          en: "Progress Invoices"            },
+  contractExceedsErr:  { ar: "المبلغ يتجاوز المتاح في العقد",       en: "Amount exceeds contract budget"},
+  errContractReq:      { ar: "يرجى اختيار العقد",                   en: "Please select a contract"    },
 
   // ── Account type ──────────────────────────────────────────
   accountRevenue:      { ar: "إيرادات (واردة)",                    en: "Revenue (Incoming)"           },
@@ -127,6 +155,10 @@ const STRINGS = {
   errAmountExceeds:    { ar: "المبلغ يتجاوز المتبقي",               en: "Amount exceeds remaining"     },
   errMethodReq:        { ar: "طريقة الدفع مطلوبة",                  en: "Payment method is required"   },
   errPayDateReq:       { ar: "تاريخ الدفعة مطلوب",                  en: "Payment date is required"     },
+  errContractName:     { ar: "اسم العقد مطلوب",                     en: "Contract name is required"    },
+  errContractAmount:   { ar: "قيمة العقد يجب أن تكون أكبر من صفر",  en: "Contract value must be > 0"   },
+  errContractParty:    { ar: "يرجى اختيار الطرف",                   en: "Please select a party"        },
+  errContractProject:  { ar: "يرجى اختيار المشروع",                 en: "Please select a project"      },
 
   // ── No data ───────────────────────────────────────────────
   noInvoices:          { ar: "لا توجد فواتير",                       en: "No invoices found"            },
@@ -172,4 +204,9 @@ export const STATUS_STYLES = {
 export const ACCOUNT_STYLES = {
   revenue: { bg: "bg-emerald-500/10", border: "border-emerald-500/25", text: "text-emerald-400", dot: "bg-emerald-500" },
   expense: { bg: "bg-red-500/10",     border: "border-red-500/25",     text: "text-red-400",     dot: "bg-red-500"     },
+} as const;
+
+export const KIND_STYLES = {
+  normal:   { bg: "bg-slate-500/10",  border: "border-slate-500/25",  text: "text-slate-400"  },
+  progress: { bg: "bg-violet-500/10", border: "border-violet-500/25", text: "text-violet-400" },
 } as const;

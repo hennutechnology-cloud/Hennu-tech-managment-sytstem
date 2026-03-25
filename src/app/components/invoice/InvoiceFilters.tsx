@@ -1,15 +1,16 @@
 // ============================================================
-// InvoiceFilters.tsx
+// InvoiceFilters.tsx  (updated — adds invoiceKind filter)
 // ============================================================
 import { Search, X }  from "lucide-react";
 import GlassCard       from "../../core/shared/components/GlassCard";
 import { tInv }        from "../../core/i18n/invoice.i18n";
-import type { InvoiceFiltersProps, InvoiceStatus, InvoiceAccountType } from "../../core/models/invoice.types";
+import type { InvoiceFiltersProps, InvoiceStatus, InvoiceAccountType, InvoiceKind } from "../../core/models/invoice.types";
 
 export default function InvoiceFilters({
   search, onSearch,
   statusFilter, onStatus,
   typeFilter, onType,
+  kindFilter, onKind,
   lang,
 }: InvoiceFiltersProps) {
   const isRtl = lang === "ar";
@@ -28,12 +29,24 @@ export default function InvoiceFilters({
     { value: "expense", label: tInv(lang, "filterExpense") },
   ];
 
+  const kindOptions: { value: InvoiceKind | "all"; label: string }[] = [
+    { value: "all",      label: tInv(lang, "kindAll")      },
+    { value: "normal",   label: tInv(lang, "kindNormal")   },
+    { value: "progress", label: tInv(lang, "kindProgress") },
+  ];
+
   const statusColors: Record<string, string> = {
     all:     "bg-white/8 border-white/15 text-gray-200",
     paid:    "bg-emerald-500/15 border-emerald-500/35 text-emerald-300",
     partial: "bg-blue-500/15 border-blue-500/35 text-blue-300",
     pending: "bg-amber-500/15 border-amber-500/35 text-amber-300",
     overdue: "bg-red-500/15 border-red-500/35 text-red-300",
+  };
+
+  const kindColors: Record<string, string> = {
+    all:      "bg-white/8 border-white/15 text-gray-200",
+    normal:   "bg-slate-500/15 border-slate-500/35 text-slate-300",
+    progress: "bg-violet-500/15 border-violet-500/35 text-violet-300",
   };
 
   return (
@@ -87,6 +100,23 @@ export default function InvoiceFilters({
                                : opt.value === "expense"
                                ? "bg-red-500/15 border-red-500/35 text-red-300"
                                : "bg-white/8 border-white/15 text-gray-200"
+                             : "bg-white/[0.04] border-white/10 text-gray-500 hover:text-gray-300 hover:bg-white/8"
+                           }`}
+            >
+              {opt.label}
+            </button>
+          ))}
+
+          <div className="w-px h-6 bg-white/10 self-center mx-1" />
+
+          {/* Kind filter */}
+          {kindOptions.map((opt) => (
+            <button
+              key={opt.value}
+              onClick={() => onKind(opt.value)}
+              className={`px-3 py-1.5 rounded-xl text-xs font-medium transition-all border
+                           ${kindFilter === opt.value
+                             ? kindColors[opt.value]
                              : "bg-white/[0.04] border-white/10 text-gray-500 hover:text-gray-300 hover:bg-white/8"
                            }`}
             >

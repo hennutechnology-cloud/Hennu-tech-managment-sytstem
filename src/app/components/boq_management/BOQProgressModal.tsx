@@ -1,17 +1,16 @@
 // ============================================================
 // BOQProgressModal.tsx  — 3-page inner navigation
-// Fixed: proper flex height chain so the modal always fills
-// the available viewport and each page is fully scrollable.
 // ============================================================
-import { useState, useEffect, useRef } from "react";
-import { motion, AnimatePresence }      from "motion/react";
+import { useState, useEffect }     from "react";
+import { motion, AnimatePresence }  from "motion/react";
 import {
   X, Plus, Trash2, Building2, Users,
   ChevronDown, ChevronUp, AlertCircle,
   Edit2, Check, XCircle, TrendingUp, TrendingDown,
-  Search, ArrowLeft, ArrowRight, FileText,
+  ArrowLeft, ArrowRight, FileText,
 } from "lucide-react";
-import DatePicker from "../../core/shared/components/DatePicker";
+import DatePicker          from "../../core/shared/components/DatePicker";
+import SearchableDropdown  from "../../core/shared/components/SearchableDropdown"; // ← shared
 import {
   tBOQMgt, formatNum, formatCurrency,
   resolveUnit, progressColor, progressTextColor,
@@ -23,7 +22,6 @@ import type {
   BOQProgressEntry,
   ProgressExecutorType,
 } from "../../core/models/BOQManagement.types";
-import type { Subcontractor } from "../../core/models/subcontractor.types";
 
 // ── Types & helpers ───────────────────────────────────────────
 type Page = "overview" | "log" | "form";
@@ -47,9 +45,11 @@ const inp = (err: boolean) =>
    rounded-xl px-3 py-2.5 text-white placeholder-gray-500 text-sm
    focus:outline-none focus:border-orange-500/60 focus:ring-1 focus:ring-orange-500/20 transition-all`;
 
-// ── Small shared components ───────────────────────────────────
+// ── Small shared sub-components ───────────────────────────────
 
-function Field({ label, error, children }: { label?: string; error?: string; children: React.ReactNode }) {
+function Field({ label, error, children }: {
+  label?: string; error?: string; children: React.ReactNode;
+}) {
   return (
     <div className="space-y-1.5">
       {label && <label className="block text-xs font-medium text-gray-400">{label}</label>}
@@ -109,92 +109,6 @@ function ExecutorToggle({ value, onChange, lang }: {
   );
 }
 
-function SubcontractorDropdown({ subcontractors, value, onChange, error, lang }: {
-  subcontractors: Subcontractor[]; value: string;
-  onChange: (id: string, name: string) => void; error?: string; lang: string;
-}) {
-  const isRtl = lang === "ar";
-  const [open, setOpen]     = useState(false);
-  const [search, setSearch] = useState("");
-  const ref                 = useRef<HTMLDivElement>(null);
-  const selected            = subcontractors.find((s) => s.id === value);
-  const filtered            = subcontractors.filter(
-    (s) => s.name.toLowerCase().includes(search.toLowerCase()) ||
-           s.specialty.toLowerCase().includes(search.toLowerCase()),
-  );
-
-  useEffect(() => {
-    const h = (e: MouseEvent) => { if (!ref.current?.contains(e.target as Node)) setOpen(false); };
-    document.addEventListener("mousedown", h);
-    return () => document.removeEventListener("mousedown", h);
-  }, []);
-
-  return (
-    <div ref={ref} className="relative">
-      <button type="button" onClick={() => setOpen(o => !o)}
-        className={`w-full flex items-center gap-2 bg-white/5 border
-          ${error ? "border-red-500/50" : open ? "border-orange-500/60" : "border-white/10"}
-          rounded-xl px-3 py-2.5 text-sm transition-all hover:border-white/20 focus:outline-none
-          ${isRtl ? "flex-row-reverse" : ""}`}>
-        {selected ? (
-          <><Users className="w-4 h-4 text-purple-400 shrink-0" />
-            <span className="flex-1 text-white truncate text-left">{selected.name}</span>
-            <span className="text-xs text-gray-500 shrink-0">{selected.specialty}</span></>
-        ) : (
-          <><Search className="w-4 h-4 text-gray-500 shrink-0" />
-            <span className="flex-1 text-gray-500 text-left">{tBOQMgt(lang as any, "subcontractorPH")}</span></>
-        )}
-        <motion.div animate={{ rotate: open ? 180 : 0 }} transition={{ duration: 0.2 }}>
-          <ChevronDown className="w-4 h-4 text-gray-400 shrink-0" />
-        </motion.div>
-      </button>
-
-      <AnimatePresence>
-        {open && (
-          <motion.div initial={{ opacity: 0, y: -6, scale: 0.98 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }} exit={{ opacity: 0, y: -6, scale: 0.98 }}
-            transition={{ duration: 0.15 }}
-            className="absolute z-50 mt-1.5 w-full rounded-xl border border-white/10
-                       bg-[#0d0f18] shadow-2xl shadow-black/60 overflow-hidden"
-            dir={isRtl ? "rtl" : "ltr"}>
-            <div className={`flex items-center gap-2 px-3 py-2 border-b border-white/10 ${isRtl ? "flex-row-reverse" : ""}`}>
-              <Search className="w-3.5 h-3.5 text-gray-500 shrink-0" />
-              <input autoFocus type="text" value={search} onChange={(e) => setSearch(e.target.value)}
-                placeholder={tBOQMgt(lang as any, "subcontractorPH")}
-                className="flex-1 bg-transparent text-sm text-white placeholder-gray-500 outline-none min-w-0" />
-            </div>
-            <div className="max-h-44 overflow-y-auto">
-              {filtered.length === 0
-                ? <p className="text-center text-xs text-gray-500 py-4">{tBOQMgt(lang as any, "noSubcontractors")}</p>
-                : filtered.map((sub) => {
-                    const isSel = sub.id === value;
-                    return (
-                      <button key={sub.id} type="button"
-                        onClick={() => { onChange(sub.id, sub.name); setOpen(false); setSearch(""); }}
-                        className={`w-full flex items-center gap-3 px-4 py-2.5 text-sm transition-colors
-                                    ${isSel ? "bg-orange-500/10 text-orange-300" : "text-gray-300 hover:bg-white/8"}
-                                    ${isRtl ? "flex-row-reverse" : ""}`}>
-                        <Users className={`w-3.5 h-3.5 shrink-0 ${isSel ? "text-orange-400" : "text-purple-400"}`} />
-                        <span className="flex-1 text-left font-medium truncate">{sub.name}</span>
-                        <span className="text-xs text-gray-500 shrink-0">{sub.specialty}</span>
-                        {isSel && <Check className="w-3.5 h-3.5 text-orange-400 shrink-0" />}
-                      </button>
-                    );
-                  })}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
-
-      {error && (
-        <p className="flex items-center gap-1 text-xs text-red-400 mt-1.5">
-          <AlertCircle className="w-3 h-3 shrink-0" />{error}
-        </p>
-      )}
-    </div>
-  );
-}
-
 function CostComparison({ estimatedCost, executionCost, lang }: {
   estimatedCost: number; executionCost: number; lang: string;
 }) {
@@ -209,7 +123,9 @@ function CostComparison({ estimatedCost, executionCost, lang }: {
   return (
     <div className="rounded-xl border border-white/10 overflow-hidden">
       <div className="px-4 py-2.5 bg-white/[0.04] border-b border-white/10">
-        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{tBOQMgt(lang as any, "costCompTitle")}</p>
+        <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+          {tBOQMgt(lang as any, "costCompTitle")}
+        </p>
       </div>
       <div className="divide-y divide-white/6">
         {[
@@ -232,8 +148,10 @@ function CostComparison({ estimatedCost, executionCost, lang }: {
           </div>
         </div>
       </div>
-      <div className={`px-4 py-2 border-t border-white/10 flex items-center justify-center gap-2 ${color} ${bg}`}
-        style={{ background: over ? "rgba(239,68,68,0.05)" : equal ? "rgba(255,255,255,0.02)" : "rgba(16,185,129,0.05)" }}>
+      <div
+        className={`px-4 py-2 border-t border-white/10 flex items-center justify-center gap-2 ${color} ${bg}`}
+        style={{ background: over ? "rgba(239,68,68,0.05)" : equal ? "rgba(255,255,255,0.02)" : "rgba(16,185,129,0.05)" }}
+      >
         {!equal && <Icon className="w-3.5 h-3.5" />}
         <span className="text-xs font-semibold">
           {equal ? tBOQMgt(lang as any, "costOnTrack") : over ? tBOQMgt(lang as any, "costOver") : tBOQMgt(lang as any, "costUnder")}
@@ -247,14 +165,16 @@ function EntryRow({ entry, onEdit, onDelete, lang, unit }: {
   entry: BOQProgressEntry; onEdit: (e: BOQProgressEntry) => void;
   onDelete: (id: string) => void; lang: string; unit: string;
 }) {
-  const isRtl = lang === "ar";
+  const isRtl     = lang === "ar";
   const [exp, setExp] = useState(false);
-  const Icon = entry.executorType === "own" ? Building2 : Users;
+  const Icon      = entry.executorType === "own" ? Building2 : Users;
 
   return (
     <div className="rounded-xl border border-white/10 bg-white/[0.03] overflow-hidden">
-      <div className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/5 transition-colors ${isRtl ? "flex-row-reverse" : ""}`}
-        onClick={() => setExp(v => !v)}>
+      <div
+        className={`flex items-center gap-3 px-4 py-3.5 cursor-pointer hover:bg-white/5 transition-colors ${isRtl ? "flex-row-reverse" : ""}`}
+        onClick={() => setExp(v => !v)}
+      >
         <div className={`flex items-center gap-1.5 shrink-0 px-2.5 py-1 rounded-lg text-xs font-medium
                           ${entry.executorType === "own"
                             ? "bg-blue-500/10 text-blue-300 border border-blue-500/20"
@@ -268,10 +188,15 @@ function EntryRow({ entry, onEdit, onDelete, lang, unit }: {
           <p className="text-xs text-gray-500">{entry.date.split("T")[0]}</p>
         </div>
         <div className={`shrink-0 ${isRtl ? "text-left" : "text-right"}`}>
-          <p className="text-sm font-semibold text-white">{formatNum(entry.quantity, lang as any)} <span className="text-gray-500 text-xs">{unit}</span></p>
+          <p className="text-sm font-semibold text-white">
+            {formatNum(entry.quantity, lang as any)}{" "}
+            <span className="text-gray-500 text-xs">{unit}</span>
+          </p>
           <p className="text-xs text-orange-400">{formatCurrency(entry.totalCost, lang as any)}</p>
         </div>
-        <span className="text-gray-500 shrink-0">{exp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}</span>
+        <span className="text-gray-500 shrink-0">
+          {exp ? <ChevronUp className="w-4 h-4" /> : <ChevronDown className="w-4 h-4" />}
+        </span>
       </div>
       <AnimatePresence>
         {exp && (
@@ -282,14 +207,20 @@ function EntryRow({ entry, onEdit, onDelete, lang, unit }: {
                 <span>{tBOQMgt(lang as any, "progFieldUnitPrice")}</span>
                 <span className="text-white">{formatCurrency(entry.unitPrice, lang as any)} / {unit}</span>
               </div>
-              {entry.notes && <p className={`text-xs text-gray-400 italic ${isRtl ? "text-right" : ""}`}>{entry.notes}</p>}
+              {entry.notes && (
+                <p className={`text-xs text-gray-400 italic ${isRtl ? "text-right" : ""}`}>{entry.notes}</p>
+              )}
               <div className={`flex gap-2 ${isRtl ? "justify-start flex-row-reverse" : "justify-end"}`}>
-                <button onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs hover:bg-blue-500/20 transition-colors">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onEdit(entry); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-blue-500/10 border border-blue-500/20 text-blue-400 text-xs hover:bg-blue-500/20 transition-colors"
+                >
                   <Edit2 className="w-3 h-3" />{tBOQMgt(lang as any, "progEditEntry")}
                 </button>
-                <button onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
-                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs hover:bg-red-500/20 transition-colors">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onDelete(entry.id); }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500/10 border border-red-500/20 text-red-400 text-xs hover:bg-red-500/20 transition-colors"
+                >
                   <Trash2 className="w-3 h-3" />{tBOQMgt(lang as any, "progDeleteEntry")}
                 </button>
               </div>
@@ -334,6 +265,7 @@ export default function BOQProgressModal({
 
   const goTo = (p: Page, dir: number) => { setDirection(dir); setPage(p); };
 
+  // ── Validation (unchanged) ────────────────────────────────
   const validate = () => {
     const e: BOQProgressFormErrors = {};
     if (form.executorType === "own") {
@@ -346,18 +278,20 @@ export default function BOQProgressModal({
     else if (isNaN(qty) || qty <= 0) e.quantity = tBOQMgt(lang, "errProgQtyInvalid");
     else {
       const orig = isEdit ? (entries.find(en => en.id === editId)?.quantity ?? 0) : 0;
-      if (qty > remaining + orig) e.quantity = tBOQMgt(lang, "errProgQtyExceeds");
+      if (qty > remaining + orig)    e.quantity = tBOQMgt(lang, "errProgQtyExceeds");
     }
     const price = parseFloat(form.unitPrice);
     if (!form.unitPrice.trim())          e.unitPrice = tBOQMgt(lang, "errProgPriceReq");
     else if (isNaN(price) || price <= 0) e.unitPrice = tBOQMgt(lang, "errProgPriceInvalid");
     if (!form.date) e.date = tBOQMgt(lang, "errProgDateReq");
-    setErrors(e); return Object.keys(e).length === 0;
+    setErrors(e);
+    return Object.keys(e).length === 0;
   };
 
   const sf = (k: keyof BOQProgressFormValues, v: string) => {
     setForm(f => ({ ...f, [k]: v }));
-    if (errors[k as keyof BOQProgressFormErrors]) setErrors(p => ({ ...p, [k]: undefined }));
+    if (errors[k as keyof BOQProgressFormErrors])
+      setErrors(p => ({ ...p, [k]: undefined }));
   };
 
   const setExType = (v: ProgressExecutorType) => {
@@ -365,16 +299,32 @@ export default function BOQProgressModal({
     setErrors(p => ({ ...p, executorName: undefined, subcontractorId: undefined }));
   };
 
-  const setSub = (id: string, name: string) => {
+  // ── This is the ONLY logic bridge needed ─────────────────
+  // The shared SearchableDropdown calls onChange(id, label).
+  // We map that directly into the same two form fields that
+  // the old SubcontractorDropdown called setSub(id, name) for.
+  const handleSubChange = (id: string, name: string) => {
     setForm(f => ({ ...f, subcontractorId: id, executorName: name }));
     setErrors(p => ({ ...p, subcontractorId: undefined }));
   };
+
+  // ── Build option list for the dropdown ───────────────────
+  // Mapped once per render from the same `subcontractors` prop
+  // that was passed to the old SubcontractorDropdown.
+  const subOptions = subcontractors.map(s => ({
+    id:    s.id,
+    label: s.name,
+    sub:   s.specialty,
+    icon:  <Users className="w-3.5 h-3.5" />,
+  }));
 
   const handleSubmit = async () => {
     if (!validate()) return;
     setSaving(true);
     try {
-      isEdit && editId ? await onUpdateEntry(item.id, editId, form) : await onAddEntry(item.id, form);
+      isEdit && editId
+        ? await onUpdateEntry(item.id, editId, form)
+        : await onAddEntry(item.id, form);
       setForm(emptyForm()); setEditId(null); goTo("log", -1);
     } finally { setSaving(false); }
   };
@@ -402,7 +352,6 @@ export default function BOQProgressModal({
             onClick={onClose}
             className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50" />
 
-          {/* Positioner — fills viewport on mobile (bottom sheet), centres on sm+ */}
           <div className="fixed inset-0 z-50 flex items-end sm:items-center sm:justify-center sm:p-4 pointer-events-none">
             <motion.div
               key="modal"
@@ -412,14 +361,6 @@ export default function BOQProgressModal({
               transition={{ type: "spring", stiffness: 320, damping: 30 }}
               dir={isRtl ? "rtl" : "ltr"}
               onClick={(e) => e.stopPropagation()}
-              /*
-               * KEY SIZING RULE:
-               * Mobile  : w-full, height driven by max-h-[90dvh], flex col
-               * Desktop : w-full max-w-xl, height 82dvh (tall fixed height so
-               *           every page has plenty of room), flex col
-               * The flex column means header + body(flex-1 overflow-y-auto) + footer
-               * all stack properly and body is the ONLY thing that scrolls.
-               */
               className="pointer-events-auto
                          w-full sm:max-w-xl
                          flex flex-col
@@ -435,21 +376,23 @@ export default function BOQProgressModal({
                 <div className="w-10 h-1 rounded-full bg-white/25" />
               </div>
 
-              {/* ── HEADER (always visible, never scrolls) ── */}
+              {/* ── HEADER ── */}
               <div className={`flex items-center gap-3 px-5 py-4 sm:px-6
                                border-b border-white/10 shrink-0
                                bg-gradient-to-r from-orange-500/8 to-transparent
                                ${isRtl ? "flex-row-reverse" : ""}`}>
-
-                {/* Back arrow */}
                 <AnimatePresence mode="popLayout">
                   {page !== "overview" && (
                     <motion.button key="back"
                       initial={{ opacity: 0, scale: 0.75 }} animate={{ opacity: 1, scale: 1 }}
                       exit={{ opacity: 0, scale: 0.75 }} transition={{ duration: 0.15 }}
                       onClick={() => {
-                        if (page === "form") { if (isEdit) { setEditId(null); setForm(emptyForm()); setErrors({}); } goTo("log", -1); }
-                        else goTo("overview", -1);
+                        if (page === "form") {
+                          if (isEdit) { setEditId(null); setForm(emptyForm()); setErrors({}); }
+                          goTo("log", -1);
+                        } else {
+                          goTo("overview", -1);
+                        }
                       }}
                       className="p-2 rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-white shrink-0">
                       {isRtl ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
@@ -457,9 +400,10 @@ export default function BOQProgressModal({
                   )}
                 </AnimatePresence>
 
-                {/* Title */}
                 <div className={`flex-1 min-w-0 ${isRtl ? "text-right" : "text-left"}`}>
-                  <h2 className="text-base sm:text-lg font-bold text-white leading-tight">{pageTitle[page]}</h2>
+                  <h2 className="text-base sm:text-lg font-bold text-white leading-tight">
+                    {pageTitle[page]}
+                  </h2>
                   <p className="text-xs text-gray-400 mt-0.5 truncate">
                     <span dir="ltr" className="font-mono text-orange-400/80">{item.code}</span>
                     <span className="mx-2 text-white/20">·</span>
@@ -467,7 +411,6 @@ export default function BOQProgressModal({
                   </p>
                 </div>
 
-                {/* Step dots */}
                 <div className={`flex items-center gap-1.5 shrink-0 ${isRtl ? "flex-row-reverse" : ""}`}>
                   {pages.map((p) => (
                     <div key={p} className={`rounded-full transition-all duration-300
@@ -475,14 +418,13 @@ export default function BOQProgressModal({
                   ))}
                 </div>
 
-                {/* Close */}
                 <button onClick={onClose}
                   className="p-2 rounded-lg hover:bg-white/10 transition-colors text-gray-400 hover:text-white shrink-0">
                   <X className="w-4 h-4 sm:w-5 sm:h-5" />
                 </button>
               </div>
 
-              {/* ── PAGE BODY (flex-1 = takes all remaining height, scrolls) ── */}
+              {/* ── PAGE BODY ── */}
               <div className="flex-1 min-h-0 relative">
                 <AnimatePresence custom={direction} mode="wait">
                   <motion.div
@@ -495,16 +437,12 @@ export default function BOQProgressModal({
                     }}
                     initial="enter" animate="center" exit="exit"
                     transition={{ duration: 0.2, ease: "easeInOut" }}
-                    /* absolute + inset-0 so each page fills the parent exactly;
-                       overflow-y-auto makes ONLY this div scroll */
                     className="absolute inset-0 overflow-y-auto"
                   >
 
                     {/* ══════════ PAGE 1 — OVERVIEW ══════════ */}
                     {page === "overview" && (
                       <div className="px-5 py-6 sm:px-6 space-y-6">
-
-                        {/* Ring + stat grid */}
                         <div className={`flex items-center gap-5 ${isRtl ? "flex-row-reverse" : ""}`}>
                           <ProgressRing pct={pct} />
                           <div className="flex-1 grid grid-cols-2 gap-2.5">
@@ -525,7 +463,6 @@ export default function BOQProgressModal({
                           </div>
                         </div>
 
-                        {/* Progress bar */}
                         <div>
                           <div className={`flex items-center justify-between text-xs mb-2 ${isRtl ? "flex-row-reverse" : ""}`}>
                             <span className="text-gray-400">{tBOQMgt(lang, "progressPercent")}</span>
@@ -538,10 +475,8 @@ export default function BOQProgressModal({
                           </div>
                         </div>
 
-                        {/* Cost comparison */}
                         <CostComparison estimatedCost={item.totalCost} executionCost={execCost} lang={lang} />
 
-                        {/* Per-executor breakdown */}
                         {entries.length > 0 && (() => {
                           const map: Record<string, { qty: number; type: ProgressExecutorType }> = {};
                           entries.forEach(e => {
@@ -552,7 +487,9 @@ export default function BOQProgressModal({
                           return (
                             <div className="rounded-xl border border-white/10 overflow-hidden">
                               <div className="px-4 py-2.5 bg-white/[0.04] border-b border-white/10">
-                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">{tBOQMgt(lang, "progressEntries")}</p>
+                                <p className="text-xs font-semibold text-gray-400 uppercase tracking-widest">
+                                  {tBOQMgt(lang, "progressEntries")}
+                                </p>
                               </div>
                               {Object.entries(map).map(([k, v]) => {
                                 const [, name] = k.split(":");
@@ -567,7 +504,10 @@ export default function BOQProgressModal({
                                         <span className="text-xs text-gray-400 ml-2 shrink-0">{formatNum(v.qty, lang)} {unitLabel}</span>
                                       </div>
                                       <div className="h-1.5 bg-white/10 rounded-full overflow-hidden">
-                                        <div className={`h-full rounded-full ${v.type === "own" ? "bg-blue-500" : "bg-purple-500"}`} style={{ width: `${Math.min(bp, 100)}%` }} />
+                                        <div
+                                          className={`h-full rounded-full ${v.type === "own" ? "bg-blue-500" : "bg-purple-500"}`}
+                                          style={{ width: `${Math.min(bp, 100)}%` }}
+                                        />
                                       </div>
                                     </div>
                                   </div>
@@ -607,19 +547,19 @@ export default function BOQProgressModal({
                     {page === "form" && (
                       <div className="px-5 py-5 sm:px-6 space-y-5">
 
-                        {/* Edit banner */}
                         {isEdit && (
                           <div className={`flex items-center gap-2 px-4 py-3 rounded-xl bg-blue-500/8 border border-blue-500/20 ${isRtl ? "flex-row-reverse" : ""}`}>
                             <Edit2 className="w-3.5 h-3.5 text-blue-400 shrink-0" />
                             <p className="text-xs text-blue-300 flex-1">{tBOQMgt(lang, "progEditEntry")}</p>
-                            <button onClick={() => { setEditId(null); setForm(emptyForm()); setErrors({}); }}
-                              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors">
+                            <button
+                              onClick={() => { setEditId(null); setForm(emptyForm()); setErrors({}); }}
+                              className="flex items-center gap-1 text-xs text-gray-400 hover:text-white transition-colors"
+                            >
                               <XCircle className="w-3.5 h-3.5 mr-0.5" />{tBOQMgt(lang, "progCancelEdit")}
                             </button>
                           </div>
                         )}
 
-                        {/* Remaining hint */}
                         <div className={`flex items-center gap-2 px-4 py-3 rounded-xl bg-orange-500/8 border border-orange-500/20 ${isRtl ? "flex-row-reverse" : ""}`}>
                           <p className="text-xs text-orange-300">
                             {tBOQMgt(lang, "progressRemaining")}:{" "}
@@ -627,12 +567,10 @@ export default function BOQProgressModal({
                           </p>
                         </div>
 
-                        {/* Executor toggle */}
                         <Field>
                           <ExecutorToggle value={form.executorType} onChange={setExType} lang={lang} />
                         </Field>
 
-                        {/* Own / subcontract field */}
                         {form.executorType === "own" ? (
                           <Field label={tBOQMgt(lang, "executorNameLabel")} error={errors.executorName}>
                             <input type="text" value={form.executorName}
@@ -641,14 +579,28 @@ export default function BOQProgressModal({
                               className={inp(!!errors.executorName)} />
                           </Field>
                         ) : (
+                          // ── REPLACED: SubcontractorDropdown → SearchableDropdown ──
+                          // Props mapping:
+                          //   subcontractors → options (mapped to DropdownOption[])
+                          //   value          → value   (subcontractorId, unchanged)
+                          //   onChange(id,name) stays identical via handleSubChange
+                          //   error          → error   (unchanged)
+                          //   lang           → lang    (unchanged)
                           <Field label={tBOQMgt(lang, "subcontractorLabel")} error={errors.subcontractorId}>
-                            <SubcontractorDropdown subcontractors={subcontractors}
-                              value={form.subcontractorId} onChange={setSub}
-                              error={errors.subcontractorId} lang={lang} />
+                            <SearchableDropdown
+                              options={subOptions}
+                              value={form.subcontractorId}
+                              onChange={handleSubChange}
+                              placeholder={tBOQMgt(lang as any, "subcontractorPH")}
+                              searchPlaceholder={tBOQMgt(lang as any, "subcontractorPH")}
+                              emptyText={tBOQMgt(lang as any, "noSubcontractors")}
+                              error={errors.subcontractorId}
+                              lang={lang}
+                              accentColor="violet"
+                            />
                           </Field>
                         )}
 
-                        {/* Qty + price */}
                         <div className="grid grid-cols-2 gap-3">
                           <Field label={tBOQMgt(lang, "progFieldQty")} error={errors.quantity}>
                             <input type="number" dir="ltr" min="0" step="any" value={form.quantity}
@@ -662,7 +614,6 @@ export default function BOQProgressModal({
                           </Field>
                         </div>
 
-                        {/* Live cost */}
                         <AnimatePresence>
                           {liveCost > 0 && (
                             <motion.div initial={{ opacity: 0, y: -4 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}
@@ -673,13 +624,11 @@ export default function BOQProgressModal({
                           )}
                         </AnimatePresence>
 
-                        {/* Date picker */}
                         <Field label={tBOQMgt(lang, "progFieldDate")} error={errors.date}>
                           <DatePicker value={form.date} onChange={v => sf("date", v)}
                             lang={lang as any} error={errors.date} />
                         </Field>
 
-                        {/* Notes */}
                         <Field label={tBOQMgt(lang, "progFieldNotes")}>
                           <textarea rows={3} value={form.notes}
                             onChange={e => sf("notes", e.target.value)}
@@ -695,11 +644,10 @@ export default function BOQProgressModal({
                 </AnimatePresence>
               </div>
 
-              {/* ── FOOTER (always visible, never scrolls) ── */}
+              {/* ── FOOTER ── */}
               <div className={`shrink-0 px-5 py-4 sm:px-6 border-t border-white/10 bg-[#0d0f18]
                                flex items-center gap-3 ${isRtl ? "flex-row-reverse" : ""}`}>
 
-                {/* Page 1 footer */}
                 {page === "overview" && <>
                   <button onClick={onClose}
                     className="px-4 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm shrink-0">
@@ -717,7 +665,6 @@ export default function BOQProgressModal({
                   </button>
                 </>}
 
-                {/* Page 2 footer */}
                 {page === "log" && <>
                   <button onClick={() => goTo("overview", -1)}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm shrink-0 ${isRtl ? "flex-row-reverse" : ""}`}>
@@ -730,9 +677,12 @@ export default function BOQProgressModal({
                   </button>
                 </>}
 
-                {/* Page 3 footer */}
                 {page === "form" && <>
-                  <button onClick={() => { if (isEdit) { setEditId(null); setForm(emptyForm()); setErrors({}); } goTo("log", -1); }}
+                  <button
+                    onClick={() => {
+                      if (isEdit) { setEditId(null); setForm(emptyForm()); setErrors({}); }
+                      goTo("log", -1);
+                    }}
                     className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border border-white/10 text-gray-300 hover:bg-white/5 transition-all text-sm shrink-0 ${isRtl ? "flex-row-reverse" : ""}`}>
                     {isRtl ? <ArrowRight className="w-4 h-4" /> : <ArrowLeft className="w-4 h-4" />}
                     {tBOQMgt(lang, "cancel")}
@@ -743,7 +693,13 @@ export default function BOQProgressModal({
                       ? <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
                       : isEdit ? <Check className="w-4 h-4" /> : <Plus className="w-4 h-4" />
                     }
-                    <span>{saving ? tBOQMgt(lang, "progSaving") : isEdit ? tBOQMgt(lang, "progUpdateEntry") : tBOQMgt(lang, "progSaveEntry")}</span>
+                    <span>
+                      {saving
+                        ? tBOQMgt(lang, "progSaving")
+                        : isEdit
+                        ? tBOQMgt(lang, "progUpdateEntry")
+                        : tBOQMgt(lang, "progSaveEntry")}
+                    </span>
                   </button>
                 </>}
 

@@ -1,7 +1,7 @@
 // ============================================================
 // InvoiceSummaryCards.tsx
 // ============================================================
-import { TrendingUp, TrendingDown, CheckCircle2, Clock, AlertCircle, FileText } from "lucide-react";
+import { TrendingUp, TrendingDown, CheckCircle2, Clock, AlertCircle, FileText, Layers } from "lucide-react";
 import GlassCard           from "../../core/shared/components/GlassCard";
 import { tInv, formatCurrency } from "../../core/i18n/invoice.i18n";
 import type { InvoiceSummaryCardsProps } from "../../core/models/invoice.types";
@@ -58,10 +58,18 @@ export default function InvoiceSummaryCards({ summary, lang }: InvoiceSummaryCar
       sub:        null,
       valueColor: "text-rose-400",
     },
+    {
+      icon:       <Layers className="w-5 h-5 text-white" />,
+      iconBg:     "from-violet-500 to-violet-600",
+      label:      tInv(lang, "totalContracts"),
+      value:      String(summary.totalContracts),
+      sub:        null,
+      valueColor: "text-violet-400",
+    },
   ];
 
   return (
-    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 sm:gap-4">
+    <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7 gap-3 sm:gap-4">
       {cards.map((card) => (
         <GlassCard key={card.label} className="p-4">
           <div className={`flex items-center gap-2 mb-3 ${isRtl ? "flex-row-reverse" : ""}`}>

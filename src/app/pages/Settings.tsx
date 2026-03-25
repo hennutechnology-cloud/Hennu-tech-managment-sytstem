@@ -1,5 +1,5 @@
 // ============================================================
-// Settings.tsx  (page) — two-column layout, i18n, currency-aware
+// Settings.tsx  (page)
 // ============================================================
 import { useEffect, useState, useCallback, useRef } from "react";
 
@@ -150,8 +150,8 @@ export default function Settings() {
            flex + dir on the parent handles this automatically        */}
       <div className="flex gap-6 items-start">
 
-        {/* Nav panel — 224px wide, sticky */}
-        <div className="w-56 flex-shrink-0">
+        {/* Nav panel — 224px wide, sticky so it stays visible while scrolling */}
+        <div className="w-56 flex-shrink-0 sticky top-6 self-start">
           <SettingsNav active={activeNav} onSelect={handleNavSelect} lang={lang} />
         </div>
 
